@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import itertools
 import tensorflow.python.keras as krs
 from keras.layers import LSTM, Dropout, Dense, Layer, Conv1D
 from keras.models import Sequential
@@ -50,15 +51,19 @@ class Cdt1dLayer(Layer):
         filt = filter_combine([1, 1, 1], [0.5, 0.5, 0.5], in_channels=inputs_flat.shape[2])
 
         res = tf.nn.convolution(input=inputs_flat, filters=filt, padding="SAME").numpy()
-        print("Shape input", inputs.shape)
-        print("Shape input flat", inputs_flat.shape)
-        print("Shape filter", filt.shape)
-        print("Shape result", res.shape)
+        # print("Shape input", inputs.shape)
+        # print("Shape input flat", inputs_flat.shape)
+        # print("Shape filter", filt.shape)
+        # print("Shape result flat", res.shape)
 
-        # res_1 = res[:, :, :1].reshape((inputs.shape[0],-1,1))[:,:-1,:]
-        # res_2 = res[:, :, 1:].reshape((inputs.shape[0],-1,1))[:,:-1,:]
+        result = np.zeros((1, res.shape[1], res.shape[0] * res.shape[2]))
 
-        result = res.reshape((inputs.shape[0], -1, filt.shape[2]))[:,:-1,:]
+        indexes = list(itertools.product(range(res.shape[0]), range(res.shape[2])))
+        for i, _jk in enumerate(indexes):
+            j, k = _jk
+            result[0, :, i] = res[j, :, k]
+        result = result.reshape((inputs.shape[0], -1, len(indexes)))[:, :-1, :]
+        # print("Shape result", result.shape)
         return result
 
 
@@ -70,10 +75,12 @@ def inputs_flat_with_pad(inputs: np.array):
     """
     inputs = inputs if type(inputs) == np.ndarray else np.array(inputs)
     inputs_3rd_shape = 1 if inputs.ndim == 2 else inputs.shape[2]
+    inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], inputs_3rd_shape))
 
-    res = np.zeros((inputs.shape[0], inputs.shape[1]+1, inputs_3rd_shape))
-    res[:, :-1, :] = inputs.reshape(inputs.shape[0], inputs.shape[1], inputs_3rd_shape)
-    res = res.reshape((1, -1, inputs_3rd_shape))#[:,:-1,:]
+    res = np.zeros((inputs_3rd_shape, inputs.shape[0], inputs.shape[1]+1))
+    for i in range(inputs_3rd_shape):
+        res[i, :, :-1] = inputs[:, :, i]#.reshape((1, inputs.shape[0], inputs.shape[1]))
+    res = res.reshape((inputs_3rd_shape, -1, 1))
     return res
 
 

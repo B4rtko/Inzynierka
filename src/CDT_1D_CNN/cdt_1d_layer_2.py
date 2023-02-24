@@ -1,4 +1,4 @@
-# Zasotosowanie konwolucji 1d, wraz z przekształceniem danych 2D w 1D po dodaniu kolumny 0, a potem flattowanie
+# Podejście z wykorzystaniem konwolucji 2d, w której jeden z wymiarów jest równy 1, a drugi 3
 
 import pandas as pd
 import numpy as np
@@ -10,7 +10,7 @@ import tensorflow.python.keras as krs
 from tensorflow.python.keras.layers import LSTM, Dropout, Dense, Layer, Conv1D
 from keras.models import Sequential
 from sklearn.preprocessing import MinMaxScaler
-from typing import Union
+from typing import Union, Tuple
 
 
 class Cdt1dLayer(tf.keras.layers.Layer):
@@ -126,11 +126,60 @@ def filter_combine(*weights: Union[list, np.array], in_channels=1):
     return filt
 
 
+def _batches_create(data_array: np.array, batch_size: int = 60):
+    _x = np.array([data_array[:, i:i+batch_size].astype("float32") for i in range(data_array.shape[1]-batch_size-1)])
+    _y = np.array([data_array[:, i+batch_size:i+batch_size+1].astype("float32") for i in range(data_array.shape[1]-batch_size-1)])
+    return _x, _y
+
+
+def _create_channels(_data: np.ndarray, channel_len: int):
+    _result = np.broadcast_to(
+        _data.reshape([*_data.shape, 1]),
+        [*_data.shape, channel_len]
+    )
+    return _result
+
+
+def data_prepare_to_model(
+        data_array: np.ndarray,
+        batch_size: int = 60,
+        test_ratio: float = 0.15,
+        validation_ratio: float = 0.1,
+        axis_to_split: int = 1,
+        channel_len: int = 2
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+
+    :param data_array: 2D numpy array with data
+    :param batch_size:
+    :param test_ratio:
+    :param validation_ratio:
+    :param axis_to_split:
+    :param channel_len:
+    :return:
+    """
+    data_array = _create_channels(data_array, channel_len)
+
+    _data_len = data_array.shape[axis_to_split]
+    _train_set, _test_set, _validation_set = np.split(
+        data_array,
+        [int(_data_len*(1-test_ratio-validation_ratio)), int(_data_len*(1-validation_ratio))],
+        axis=axis_to_split
+    )
+
+    _x_train, _y_train = _batches_create(_train_set, batch_size)
+    _x_test, _y_test = _batches_create(_test_set, batch_size)
+    _x_validation, _y_validation = _batches_create(_validation_set, batch_size)
+
+    return _x_train, _y_train, _x_test, _y_test, _x_validation, _y_validation
+
+
 __all__ = [
     "Cdt1dLayer",
     "inputs_flat_with_pad",
     "backup_inputs_flat_with_pad",
-    "filter_combine"
+    "filter_combine",
+    "data_prepare_to_model"
 ]
 
 

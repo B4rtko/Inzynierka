@@ -11,7 +11,10 @@ class DataProcess:
             test_ratio: float = 0.15,
             validation_ratio: float = 0.1,
             axis_to_split: int = 1,
-            channel_len: int = 2
+            channel_len: int = 2,
+            _feature_to_predict_num: int = 3,
+            threshold_rise: float = 0.02,
+            threshold_fall: float = -0.02
     ):
         """
         :param data_input: 2D numpy array with data of size (height, width)
@@ -35,6 +38,9 @@ class DataProcess:
         self.validation_ratio = validation_ratio
         self.axis_to_split = axis_to_split
         self.channel_len = channel_len
+        self._feature_to_predict_num = _feature_to_predict_num
+        self.threshold_rise = threshold_rise
+        self.threshold_fall = threshold_fall
 
     def run(self):
         _data = self.data_input
@@ -111,7 +117,36 @@ class DataProcess:
         """
         _x = np.array([data_array[:, i:i+batch_size, :].astype("float32") for i in range(data_array.shape[1]-batch_size)])
         _y = np.array([data_array[:, i+batch_size:i+batch_size+1, :].astype("float32") for i in range(data_array.shape[1]-batch_size)])
+
+        _y = self._target_variable_adjust(_x, _y, self._feature_to_predict_num, self.threshold_rise, self.threshold_fall)
         return _x, _y
+
+    @staticmethod
+    def _target_variable_adjust(
+            _x: np.ndarray,
+            _y: np.ndarray,
+            _feature_to_predict_num: int,
+            threshold_rise: float = 0.02,
+            threshold_fall: float = -0.02
+    ):
+        """
+
+        :param _x: array of shape (batches, features, time, channels)
+        :param _y: array of shape (batches, features, time, channels), where time is 1;
+            each batch contains one next data after its corresponding _x batch
+        :param _feature_to_predict_num: position of predicting variable
+        :param threshold_rise: percentage rise threshold
+        :param threshold_fall: percentage fall threshold
+        :return: _y after adjustments
+        """
+        _x_last_target_from_batch = _x[:, _feature_to_predict_num:_feature_to_predict_num+1, -1:, :]
+        _y_last_target_from_batch = _y[:, _feature_to_predict_num:_feature_to_predict_num+1, :, :]
+        _y_result = (_y_last_target_from_batch - _x_last_target_from_batch) / _x_last_target_from_batch
+
+        _y_result[(threshold_fall < _y_result) & (_y_result < threshold_rise)] = 0
+        _y_result[_y_result <= threshold_fall] = -1
+        _y_result[threshold_rise <= _y_result] = 1
+        return _y_result
 
 
 __all__ = [

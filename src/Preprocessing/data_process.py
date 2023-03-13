@@ -141,11 +141,17 @@ class DataProcess:
         """
         _x_last_target_from_batch = _x[:, _feature_to_predict_num:_feature_to_predict_num+1, -1:, :]
         _y_last_target_from_batch = _y[:, _feature_to_predict_num:_feature_to_predict_num+1, :, :]
-        _y_result = (_y_last_target_from_batch - _x_last_target_from_batch) / _x_last_target_from_batch
+        _y_pct_change = ((_y_last_target_from_batch - _x_last_target_from_batch) / _x_last_target_from_batch)[:, 0, 0, 0]  # shape (batch,)
 
-        _y_result[(threshold_fall < _y_result) & (_y_result < threshold_rise)] = 0
-        _y_result[_y_result <= threshold_fall] = -1
-        _y_result[threshold_rise <= _y_result] = 1
+        _y_result = np.zeros((_y.shape[0], 3))
+
+        _mask_still = ((threshold_fall < _y_pct_change) & (_y_pct_change < threshold_rise))  # shape = (batch,)
+        _mask_fall = (_y_pct_change <= threshold_fall)
+        _mask_rise = (threshold_rise <= _y_pct_change)
+
+        _y_result[_mask_still, 1] = 1
+        _y_result[_mask_fall] = [1, 0, 0]
+        _y_result[_mask_rise] = [0, 0, 1]
         return _y_result
 
 

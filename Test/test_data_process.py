@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
 
-from src import data_prepare_to_model
-from src.Preprocessing.data_process import _batches_create, _create_channels, _split_train_test_validation
+from src import DataProcess
+from unittest import mock
 
 arrays_template = {
     "input_1": np.arange(20).reshape((4, 5)),
@@ -74,6 +74,7 @@ test_params = test_params_create_channels
     (test_params["input_1"], test_params["output_1"])
 ])
 def test__create_channels(inputs, expected):
+    m = mock.Mock(spec=DataProcess)
     assert np.array_equal(_create_channels(*inputs), expected)
 
 

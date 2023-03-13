@@ -60,7 +60,8 @@ class Cdt1dLayer(tf.keras.layers.Layer):
         inputs_flat_1 = inputs_flat[:, :, :1]
         inputs_flat_2 = inputs_flat[:, :, -1:]
 
-        res_1 = tf.nn.convolution(input=inputs_flat_1, filters=self.kernel_1, padding="SAME")
+        res_1 = tf.nn.convolution(input=inputs_flat_1, filters=np.ones((3, 1, 1)), padding="SAME")
+        # res_1 = tf.nn.convolution(input=inputs_flat_1, filters=self.kernel_1, padding="SAME")
         res_2 = tf.nn.convolution(input=inputs_flat_2, filters=self.kernel_2, padding="SAME")
         res = tf.stack((res_1, res_2), axis=-1)
 

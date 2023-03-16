@@ -195,7 +195,8 @@ class DataProcess:
             threshold_fall: float
     ) -> np.ndarray:
         """
-        function adds row with prediction targets of rises/falls by set threshold of target feature
+        function adds row with prediction targets of rises/falls by set threshold of target feature. Number of row
+            with prediction targets is saved as instances parameter in 'self.data_target_row'
         :param data: numpy array with data of shape (features, instances)
         :param feature_to_predict_num: number of feature to use for creating prediction targets from first dimension
         :param threshold_rise: percentage rise threshold

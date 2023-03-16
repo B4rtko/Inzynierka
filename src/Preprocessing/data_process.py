@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Union
 
 
 class DataProcess:
@@ -12,9 +12,10 @@ class DataProcess:
             validation_ratio: float = 0.1,
             axis_to_split: int = 1,
             channel_len: int = 2,
-            _feature_to_predict_num: int = 3,
+            feature_to_predict_num: int = 3,
             threshold_rise: float = 0.02,
-            threshold_fall: float = -0.02
+            threshold_fall: float = -0.02,
+            scale_data: bool = True
     ):
         """
         :param data_input: 2D numpy array with data of size (height, width)
@@ -32,30 +33,65 @@ class DataProcess:
         self._X_train, self._y_train = None, None
         self._X_test, self._y_test = None, None
         self._X_validation, self._y_validation = None, None
+        self.data_target_row = None
 
         self.batch_size = batch_size
         self.test_ratio = test_ratio
         self.validation_ratio = validation_ratio
         self.axis_to_split = axis_to_split
         self.channel_len = channel_len
-        self._feature_to_predict_num = _feature_to_predict_num
+        self.feature_to_predict_num = feature_to_predict_num
         self.threshold_rise = threshold_rise
         self.threshold_fall = threshold_fall
+        self.scale_data = scale_data
 
     def run(self):
-        _data = self.data_input
-        _data = self._create_channels(_data, self.channel_len)
-        _train_set, _test_set, _validation_set = self._split_train_test_validation(_data, self.test_ratio, self.validation_ratio, self.axis_to_split)
+        """
+        function with main pipeline for data preprocessing. Can be controlled with class's constructor arguments
+        :return: None
+        """
+        _data = self._target_variable_add(
+            data=self.data_input.copy(),
+            feature_to_predict_num=self.feature_to_predict_num,
+            threshold_rise=self.threshold_rise,
+            threshold_fall=self.threshold_fall
+        )
+        _train_set, _validation_set, _test_set = self._split_train_test_validation(
+            data=_data,
+            test_ratio=self.test_ratio,
+            validation_ratio=self.validation_ratio,
+            axis_to_split=self.axis_to_split
+        )
 
-        self._X_train, self._y_train = self._batch_windows_create(_train_set, self.batch_size)
-        self._X_test, self._y_test = self._batch_windows_create(_test_set, self.batch_size)
-        self._X_validation, self._y_validation = self._batch_windows_create(_validation_set, self.batch_size)
+        if self.scale_data:
+            (_train_set,), (_validation_set, _test_set) = self._scale_data(
+                fit_datasets=(_train_set,),
+                transform_datasets=(_validation_set, _test_set)
+            )
 
-    def get_data(self, mode: str = "all"):
+        _train_set, _validation_set, _test_set = [
+            self._create_channels(_set, self.channel_len) for _set in (_train_set, _validation_set, _test_set)
+        ]
+
+        (self._X_train, self._y_train), (self._X_validation, self._y_validation), (self._X_test, self._y_test) = [
+            self._batch_windows_create(_set, self.data_target_row, self.batch_size) for _set in (
+                _train_set, _validation_set, _test_set
+            )
+        ]
+
+    def get_data(
+            self,
+            mode: str = "all"
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+        """
+        function returns preprocessed data stored in class's instance
+        :param mode: parameter to control what datasets are being returned
+        :return: tuple with desired datasets
+        """
         assert mode in ["all", "train", "test", "validation"]
 
         if mode == "all":
-            return self._X_train, self._y_train, self._X_test, self._y_test, self._X_validation, self._y_validation
+            return self._X_train, self._y_train, self._X_validation, self._y_validation, self._X_test, self._y_test
         if mode == "train":
             return self._X_train, self._y_train
         if mode == "test":
@@ -65,94 +101,122 @@ class DataProcess:
 
     @staticmethod
     def _create_channels(
-            _data: np.ndarray,
+            data: np.ndarray,
             channel_len: int
     ):
         """
-        function creates array with 'channel len' identical channels of '_data' array.
-        :param _data: numpy array data
+        function creates array with 'channel_len' identical channels of 'data' array.
+        :param data: numpy array data
         :param channel_len: length of channel to duplicate
-        :return: Array of shape (*_data.shape, channel_len), where all channels contain identical array ('_data')
+        :return: array of shape (*data.shape, channel_len), where all channels contain identical array ('data')
         """
         _result = np.broadcast_to(
-            _data.reshape([*_data.shape, 1]),
-            [*_data.shape, channel_len]
+            data.reshape([*data.shape, 1]),
+            [*data.shape, channel_len]
         )
         return _result
 
     @staticmethod
     def _split_train_test_validation(
-            _data: np.ndarray,
-            _test_ratio: float = 0.1,
-            _validation_ratio: float = 0.1,
-            _axis_to_split: int = 1,
+            data: np.ndarray,
+            test_ratio: float = 0.1,
+            validation_ratio: float = 0.1,
+            axis_to_split: int = 1,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        function splits data into train, test and validation sets with respect to given ratios
-        :param _data: data array
-        :param _test_ratio: float from 0 to 1 to indicate what percentage of data will be used for testing
-        :param _validation_ratio: float from 0 to 1 to indicate what percentage of data will be used for validating
-        :param _axis_to_split: axis to split data for train, test and validation sets by
-        :return: data split to 3 sets
+        function splits data into train, validation and test sets with respect to given ratios
+        :param data: data array
+        :param test_ratio: float from 0 to 1 to indicate what percentage of data will be used for testing
+        :param validation_ratio: float from 0 to 1 to indicate what percentage of data will be used for validating
+        :param axis_to_split: axis to split data for train, test and validation sets by
+        :return: tuple with data split to 3 sets
         """
-        _data_len = _data.shape[_axis_to_split]
-        _train_set, _test_set, _validation_set = np.split(
-            _data,
-            [int(_data_len * (1 - _test_ratio - _validation_ratio)), int(_data_len * (1 - _validation_ratio))],
-            axis=_axis_to_split
-        )
-        return _train_set, _test_set, _validation_set
+        _data_len = data.shape[axis_to_split]
 
+        _train_set, _validation_set, _test_set = np.split(
+            data,
+            [int(_data_len * (1 - validation_ratio - test_ratio)), int(_data_len * (1 - test_ratio))],
+            axis=axis_to_split
+        )
+        return _train_set, _validation_set, _test_set
+
+    @staticmethod
     def _batch_windows_create(
-            self,
-            data_array: np.array,
+            data_array: np.ndarray,
+            data_target_row: int,
             batch_size: int = 60
     ):
         """
-        function divides 'data_array' to batches windows of size 'batch_size' by its width
+        function divides 'data_array' to batches windows of size 'batch_size' by its width and extracts target class
+            variable from each batch, which is the last value in each batches' row indicated with 'self.data_target_row'
         :param data_array: array of shape (height, width, channels)
+        :param data_target_row: number of row from 'data_array' with prediction values
         :param batch_size: size of batches
-        :return: arrays of shapes (batches = width-batch_size+1, height, batch_size, channels) and
-            (batches = width-batch_size+1, height, 1, channels)
+        :return: arrays of shapes (batches = width-batch_size+1, height-1, batch_size, channels) and (batches, 3).
+            First array contains predictors split to batches of given size and second contains target predictions
+                for each batch
         """
         _x = np.array([data_array[:, i:i+batch_size, :].astype("float32") for i in range(data_array.shape[1]-batch_size)])
-        _y = np.array([data_array[:, i+batch_size:i+batch_size+1, :].astype("float32") for i in range(data_array.shape[1]-batch_size)])
 
-        _y = self._target_variable_adjust(_x, _y, self._feature_to_predict_num, self.threshold_rise, self.threshold_fall)
+        _y_class_ind = _x[:, data_target_row, -1, 0]
+        _x = np.delete(_x, data_target_row, axis=1)
+
+        _y = np.zeros((_x.shape[0], 3), dtype="int32")
+        _y[:, 0][_y_class_ind == -1] = 1
+        _y[:, 1][_y_class_ind == 0] = 1
+        _y[:, 2][_y_class_ind == 1] = 1
         return _x, _y
 
     @staticmethod
-    def _target_variable_adjust(
-            _x: np.ndarray,
-            _y: np.ndarray,
-            _feature_to_predict_num: int,
-            threshold_rise: float = 0.02,
-            threshold_fall: float = -0.02
-    ):
+    def _scale_data(
+            fit_datasets: Union[Tuple[np.ndarray, ...], np.ndarray],
+            transform_datasets: Union[Tuple[np.ndarray, ...], np.ndarray]
+    ) -> Tuple[Tuple[np.ndarray, ...], Tuple[np.ndarray, ...]]:
         """
+        TBI - function for scaling data with sklearn StandardScaler class
+        :param fit_datasets: datasets to perform fitting on (and also predictions later)
+        :param transform_datasets: datasets to perform only transformations on
+        :return: 2 tuples with input datasets after scaling transformation.
+            First tuple contains datasets from 'fit_datasets' and second from 'transform_datasets'
+        """
+        # todo
+        if type(fit_datasets) != tuple:
+            fit_datasets = (fit_datasets,)
+        if type(transform_datasets) != tuple:
+            transform_datasets = (transform_datasets,)
 
-        :param _x: array of shape (batches, features, time, channels)
-        :param _y: array of shape (batches, features, time, channels), where time is 1;
-            each batch contains one next data after its corresponding _x batch
-        :param _feature_to_predict_num: position of predicting variable
+        return fit_datasets, transform_datasets
+
+    def _target_variable_add(
+            self,
+            data: np.ndarray,
+            feature_to_predict_num: int,
+            threshold_rise: float,
+            threshold_fall: float
+    ) -> np.ndarray:
+        """
+        function adds row with prediction targets of rises/falls by set threshold of target feature
+        :param data: numpy array with data of shape (features, instances)
+        :param feature_to_predict_num: number of feature to use for creating prediction targets from first dimension
         :param threshold_rise: percentage rise threshold
         :param threshold_fall: percentage fall threshold
-        :return: _y after adjustments
+        :return: numpy array with concatenated data and prediction targets of shape (features+1, instances-1)
         """
-        _x_last_target_from_batch = _x[:, _feature_to_predict_num:_feature_to_predict_num+1, -1:, :]
-        _y_last_target_from_batch = _y[:, _feature_to_predict_num:_feature_to_predict_num+1, :, :]
-        _y_pct_change = ((_y_last_target_from_batch - _x_last_target_from_batch) / _x_last_target_from_batch)[:, 0, 0, 0]  # shape (batch,)
+        _target_row = data[feature_to_predict_num:feature_to_predict_num+1, :]
+        _target_row_pct_change = (_target_row[:, 1:] - _target_row[:, :-1]) / _target_row[:, :-1]
 
-        _y_result = np.zeros((_y.shape[0], 3))
+        _mask_still = (threshold_fall < _target_row_pct_change) & (_target_row_pct_change < threshold_rise)
+        _mask_fall = (_target_row_pct_change <= threshold_fall)
+        _mask_rise = (threshold_rise <= _target_row_pct_change)
 
-        _mask_still = ((threshold_fall < _y_pct_change) & (_y_pct_change < threshold_rise))  # shape = (batch,)
-        _mask_fall = (_y_pct_change <= threshold_fall)
-        _mask_rise = (threshold_rise <= _y_pct_change)
+        _y_row = np.zeros_like(_target_row_pct_change, dtype=int)
+        _y_row[_mask_still] = 0
+        _y_row[_mask_fall] = -1
+        _y_row[_mask_rise] = 1
 
-        _y_result[_mask_still, 1] = 1
-        _y_result[_mask_fall] = [1, 0, 0]
-        _y_result[_mask_rise] = [0, 0, 1]
-        return _y_result
+        result = np.concatenate((data[:, :-1], _y_row), axis=0)
+        self.data_target_row = result.shape[0] - 1
+        return result
 
 
 __all__ = [

@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Tuple, Union
+from sklearn.preprocessing import StandardScaler
 
 
 class DataProcess:
@@ -15,7 +16,8 @@ class DataProcess:
             feature_to_predict_num: int = 3,
             threshold_rise: float = 0.02,
             threshold_fall: float = -0.02,
-            scale_data: bool = True
+            scale_data: bool = True,
+            scale_exclude_rows: list = None
     ):
         """
         :param data_input: 2D numpy array with data of size (height, width)
@@ -44,6 +46,7 @@ class DataProcess:
         self.threshold_rise = threshold_rise
         self.threshold_fall = threshold_fall
         self.scale_data = scale_data
+        self.scale_exclude_rows = scale_exclude_rows if scale_exclude_rows else []
 
     def run(self):
         """
@@ -64,9 +67,10 @@ class DataProcess:
         )
 
         if self.scale_data:
-            (_train_set,), (_validation_set, _test_set) = self._scale_data(
-                fit_datasets=(_train_set,),
-                transform_datasets=(_validation_set, _test_set)
+            _train_set, (_validation_set, _test_set) = self._scale_data(
+                fit_dataset=_train_set,
+                transform_datasets=(_validation_set, _test_set),
+                exclude_rows=self.scale_exclude_rows
             )
 
         _train_set, _validation_set, _test_set = [
@@ -129,7 +133,7 @@ class DataProcess:
         :param test_ratio: float from 0 to 1 to indicate what percentage of data will be used for testing
         :param validation_ratio: float from 0 to 1 to indicate what percentage of data will be used for validating
         :param axis_to_split: axis to split data for train, test and validation sets by
-        :return: tuple with data split to 3 sets
+        :return: tuple with data split to 3 sets, each with shape (features, (instances*{train|validation|test}ratio)//1)
         """
         _data_len = data.shape[axis_to_split]
 
@@ -169,23 +173,39 @@ class DataProcess:
 
     @staticmethod
     def _scale_data(
-            fit_datasets: Union[Tuple[np.ndarray, ...], np.ndarray],
-            transform_datasets: Union[Tuple[np.ndarray, ...], np.ndarray]
+            fit_dataset: Union[Tuple[np.ndarray, ...], np.ndarray],
+            transform_datasets: Union[Tuple[np.ndarray, ...], np.ndarray],
+            exclude_rows: list
     ) -> Tuple[Tuple[np.ndarray, ...], Tuple[np.ndarray, ...]]:
         """
-        TBI - function for scaling data with sklearn StandardScaler class
-        :param fit_datasets: datasets to perform fitting on (and also predictions later)
+        function for scaling data with sklearn StandardScaler class
+        :param fit_dataset: datasets to perform fitting on (and also predictions later)
         :param transform_datasets: datasets to perform only transformations on
+        :param exclude_rows: list with row numbers to exclude from scaling
         :return: 2 tuples with input datasets after scaling transformation.
             First tuple contains datasets from 'fit_datasets' and second from 'transform_datasets'
         """
-        # todo
-        if type(fit_datasets) != tuple:
-            fit_datasets = (fit_datasets,)
         if type(transform_datasets) != tuple:
             transform_datasets = (transform_datasets,)
 
-        return fit_datasets, transform_datasets
+        indices_rows = list(set(range(fit_dataset.shape[0])))
+
+        if exclude_rows:
+            [indices_rows.remove(i) for i in set(exclude_rows)]
+
+        _fit_dataset = np.transpose(fit_dataset[indices_rows, :])
+        scaler = StandardScaler()
+        scaler.fit(_fit_dataset)
+
+        for _dataset in [fit_dataset] + list(transform_datasets):
+            _dataset[indices_rows, :] = np.transpose(
+                scaler.transform(
+                    np.transpose(_dataset[indices_rows, :]),
+                    copy=True
+                )
+            )
+
+        return fit_dataset, transform_datasets
 
     def _target_variable_add(
             self,
@@ -217,6 +237,7 @@ class DataProcess:
 
         result = np.concatenate((data[:, :-1], _y_row), axis=0)
         self.data_target_row = result.shape[0] - 1
+        self.scale_exclude_rows += [self.data_target_row]
         return result
 
 

@@ -114,7 +114,7 @@ class DataProcess:
     def _create_channels(
             data: np.ndarray,
             channel_len: int
-    ):
+    ) -> np.ndarray:
         """
         function creates array with 'channel_len' identical channels of 'data' array.
         :param data: numpy array data
@@ -156,7 +156,7 @@ class DataProcess:
             data_array: np.ndarray,
             data_target_row: int,
             batch_size: int = 60
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         function divides 'data_array' to batches windows of size 'batch_size' by its width and extracts target class
             variable from each batch, which is the last value in each batches' row indicated with 'self.data_target_row'
@@ -230,7 +230,6 @@ class DataProcess:
         :param threshold_fall: percentage fall threshold
         :return: numpy array with concatenated data and prediction targets of shape (features+1, instances-1)
         """
-        # todo równe liczności klas w zbiorze treningowym
         _target_row = data[feature_to_predict_num:feature_to_predict_num+1, :]
         _target_row_pct_change = (_target_row[:, 1:] - _target_row[:, :-1]) / _target_row[:, :-1]
 
@@ -250,19 +249,20 @@ class DataProcess:
 
     @staticmethod
     def balance_dataset_with_batches(
-            x_set_balance,
-            y_set_balance,
-            x_set_fill,
-            y_set_fill
-    ):
+            x_set_balance: np.ndarray,
+            y_set_balance: np.ndarray,
+            x_set_fill: np.ndarray,
+            y_set_fill: np.ndarray
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
         """
-        method trims given set, so they will contain equal size classes.
-            Cut observations will be added to validation set if given
-        :param x_set_balance:
-        :param y_set_balance:
-        :param x_set_fill:
-        :param y_set_fill:
-        :return:
+        method trims given 'set_balance', so it will contain prediction classes of equal size.
+            Cut observations will be added to 'set_fill' dataset
+        :param x_set_balance: predictors from set that needs balancing
+        :param y_set_balance: predictions from set that needs balancing
+        :param x_set_fill: predictors from set that will be filled with trimmed observations
+        :param y_set_fill: predictions from set that will be filled with trimmed observations
+        :return: 2 tuples with predictors and predictions of datasets,
+            one with balanced prediction classes and the other filled with trimmed observations
         """
         shortest_class_len = y_set_balance.sum(axis=0).min()
         class_indexes = np.argmax(y_set_balance, axis=1)

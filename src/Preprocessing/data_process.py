@@ -17,7 +17,8 @@ class DataProcess:
             threshold_rise: float = 0.02,
             threshold_fall: float = -0.02,
             scale_data: bool = True,
-            scale_exclude_rows: list = None
+            scale_exclude_rows: list = None,
+            balance_training_dataset: bool = True
     ):
         """
         :param data_input: 2D numpy array with data of size (height, width)
@@ -47,6 +48,7 @@ class DataProcess:
         self.threshold_fall = threshold_fall
         self.scale_data = scale_data
         self.scale_exclude_rows = scale_exclude_rows if scale_exclude_rows else []
+        self.balance_training_dataset = balance_training_dataset
 
     def run(self):
         """
@@ -82,6 +84,11 @@ class DataProcess:
                 _train_set, _validation_set, _test_set
             )
         ]
+
+        if self.balance_training_dataset:
+            (self._X_train, self._y_train), (self._X_validation, self._y_validation) = self.balance_dataset_with_batches(
+                self._X_train, self._y_train, self._X_validation, self._y_validation
+            )
 
     def get_data(
             self,
@@ -223,6 +230,7 @@ class DataProcess:
         :param threshold_fall: percentage fall threshold
         :return: numpy array with concatenated data and prediction targets of shape (features+1, instances-1)
         """
+        # todo równe liczności klas w zbiorze treningowym
         _target_row = data[feature_to_predict_num:feature_to_predict_num+1, :]
         _target_row_pct_change = (_target_row[:, 1:] - _target_row[:, :-1]) / _target_row[:, :-1]
 
@@ -239,6 +247,63 @@ class DataProcess:
         self.data_target_row = result.shape[0] - 1
         self.scale_exclude_rows += [self.data_target_row]
         return result
+
+    @staticmethod
+    def balance_dataset_with_batches(
+            x_set_balance,
+            y_set_balance,
+            x_set_fill,
+            y_set_fill
+    ):
+        """
+        method trims given set, so they will contain equal size classes.
+            Cut observations will be added to validation set if given
+        :param x_set_balance:
+        :param y_set_balance:
+        :param x_set_fill:
+        :param y_set_fill:
+        :return:
+        """
+        shortest_class_len = y_set_balance.sum(axis=0).min()
+        class_indexes = np.argmax(y_set_balance, axis=1)
+
+        class_0_len, class_1_len, class_2_len = y_set_balance.sum(axis=0)
+        class_0_mask, class_1_mask, class_2_mask = np.zeros(class_0_len, dtype=bool), np.zeros(class_1_len, dtype=bool), np.zeros(class_2_len, dtype=bool)
+
+        class_0_mask[:shortest_class_len] = 1
+        class_1_mask[:shortest_class_len] = 1
+        class_2_mask[:shortest_class_len] = 1
+
+        class_0_mask, class_1_mask, class_2_mask = [
+            np.random.permutation(mask) for mask in (class_0_mask, class_1_mask, class_2_mask)
+        ]
+
+        x_class_0_keep, y_class_0_keep, x_class_1_keep, y_class_1_keep, x_class_2_keep, y_class_2_keep = (
+            x_set_balance[class_indexes == 0][class_0_mask, ...],
+            y_set_balance[class_indexes == 0][class_0_mask, ...],
+            x_set_balance[class_indexes == 1][class_1_mask, ...],
+            y_set_balance[class_indexes == 1][class_1_mask, ...],
+            x_set_balance[class_indexes == 2][class_2_mask, ...],
+            y_set_balance[class_indexes == 2][class_2_mask, ...]
+        )
+
+        x_class_0_move, y_class_0_move, x_class_1_move, y_class_1_move, x_class_2_move, y_class_2_move = (
+            x_set_balance[class_indexes == 0][~class_0_mask, ...],
+            y_set_balance[class_indexes == 0][~class_0_mask, ...],
+            x_set_balance[class_indexes == 1][~class_1_mask, ...],
+            y_set_balance[class_indexes == 1][~class_1_mask, ...],
+            x_set_balance[class_indexes == 2][~class_2_mask, ...],
+            y_set_balance[class_indexes == 2][~class_2_mask, ...]
+        )
+
+        x_keep, y_keep, x_move, y_move = (
+            np.concatenate((x_class_0_keep, x_class_1_keep, x_class_2_keep), axis=0),
+            np.concatenate((y_class_0_keep, y_class_1_keep, y_class_2_keep), axis=0),
+            np.concatenate((x_set_fill, x_class_0_move, x_class_1_move, x_class_2_move), axis=0),
+            np.concatenate((y_set_fill, y_class_0_move, y_class_1_move, y_class_2_move), axis=0)
+        )
+
+        return (x_keep, y_keep), (x_move, y_move)
 
 
 __all__ = [

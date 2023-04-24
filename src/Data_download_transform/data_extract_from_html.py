@@ -43,8 +43,13 @@ def _dataframe_K_to_1000(
     df = df.copy()
 
     flag_K = ["K" in str(i) for i in df[column]]
-    df[column] = df[column].apply(lambda x: float(str(x).replace("K", "")))
-    df[column][flag_K] *= 1000
+    flag_M = ["M" in str(i) for i in df[column]]
+
+    df[column] = df[column].apply(lambda x: float(str(x).replace("K", "").replace("M", "")))
+
+    df[column][flag_K] *= 1_000
+    df[column][flag_M] *= 1_000_000
+
     return df.astype('float64')
 
 
@@ -105,7 +110,8 @@ def extract_data_to_dataframe(
 
 if __name__ == "__main__":
     instrument_name_list = [
-        "Crude_Oil_5",
+        # "Crude_Oil_5",
+        "Tesla_5",
     ]
     extract_data_to_dataframe(instrument_name_list[0], True)
 

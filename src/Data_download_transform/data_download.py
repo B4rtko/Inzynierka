@@ -34,6 +34,8 @@ def _scrap_investing_com(
     :return: list populated with scrapped html data
     """
     for i in range(steps):
+        if i%100 == 0:
+            print(i)
         _data_list.append(_scrap_investing_com_step())
         pag.press("right")
     return _data_list
@@ -72,7 +74,12 @@ def scrap_main(
                 if event.key == keyboard.Key.shift_r:
                     flag = 1
                     time.sleep(1)
-                    _scrap_investing_com(30_000, data_container)
+                    # add try except on KeyboardInterrupt
+                    try:
+                        _scrap_investing_com(7_000, data_container)
+                    except KeyboardInterrupt:
+                        break
+
             if flag == 1:
                 break
     data_dict = {k: v for (k, v) in enumerate(data_container)}
@@ -80,7 +87,7 @@ def scrap_main(
         json.dump(data_dict, f, ensure_ascii=False, indent=4)
 
 
-if "__name__" == "__main__":
-    scrap_main("data_raw.json")
+if __name__ == "__main__":
+    scrap_main("DJI_5.json")
 
 

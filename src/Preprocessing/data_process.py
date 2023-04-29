@@ -231,6 +231,7 @@ class DataProcess:
         :return: numpy array with concatenated data and prediction targets of shape (features+1, instances-1)
         """
         _target_row = data[feature_to_predict_num:feature_to_predict_num+1, :]
+        _target_row[_target_row == 0] += np.finfo(float).eps
         _target_row_pct_change = (_target_row[:, 1:] - _target_row[:, :-1]) / _target_row[:, :-1]
 
         _mask_still = (threshold_fall < _target_row_pct_change) & (_target_row_pct_change < threshold_rise)

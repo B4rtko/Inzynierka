@@ -74,11 +74,9 @@ def _run_task(_model):
 
 
 if __name__ == '__main__':
-    # a = TrainCDT_1D()
-    # a.run()
     config_file_path = os.path.join("Configs", "Crude_Oil_5.yaml")
     model_class = TrainCDT_1D
-    pool_workers = 1 #None
+    pool_workers = None
 
     run(
         _config_file_path=config_file_path,

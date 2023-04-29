@@ -7,7 +7,7 @@ dense_layers_units:
   - [1500, 1000, 500]
   - [750, 500, 250]
 epoch_count:
-  - 10 #00
+  - 1000
 data_filename:
   -  - "Data"
      - "2_Extracted"

@@ -18,7 +18,8 @@ class DataProcess:
             threshold_fall: float = -0.02,
             scale_data: bool = True,
             scale_exclude_rows: list = None,
-            balance_training_dataset: bool = True
+            balance_training_dataset: bool = True,
+            drop_zero_value_rows: bool = True,
     ):
         """
         :param data_input: 2D numpy array with data of size (height, width)
@@ -49,12 +50,15 @@ class DataProcess:
         self.scale_data = scale_data
         self.scale_exclude_rows = scale_exclude_rows if scale_exclude_rows else []
         self.balance_training_dataset = balance_training_dataset
+        self.drop_zero_value_rows = drop_zero_value_rows
 
     def run(self):
         """
         function with main pipeline for data preprocessing. Can be controlled with class's constructor arguments
         :return: None
         """
+        if self.drop_zero_value_rows:
+            self.data_input = self._drop_zero_values_rows(self.data_input, self.feature_to_predict_num)
         _data = self._target_variable_add(
             data=self.data_input.copy(),
             feature_to_predict_num=self.feature_to_predict_num,
@@ -213,13 +217,22 @@ class DataProcess:
             )
 
         return fit_dataset, transform_datasets
+    
+    @staticmethod
+    def _drop_zero_values_rows(
+        data: np.ndarray,
+        feature_to_predict_num: int,
+    ) -> np.ndarray:
+        good_rows_mask = ~(data[feature_to_predict_num, :] == 0)
+        return data[:, good_rows_mask]
+        
 
     def _target_variable_add(
-            self,
-            data: np.ndarray,
-            feature_to_predict_num: int,
-            threshold_rise: float,
-            threshold_fall: float
+        self,
+        data: np.ndarray,
+        feature_to_predict_num: int,
+        threshold_rise: float,
+        threshold_fall: float
     ) -> np.ndarray:
         """
         function adds row with prediction targets of rises/falls by set threshold of target feature. Number of row
@@ -231,7 +244,6 @@ class DataProcess:
         :return: numpy array with concatenated data and prediction targets of shape (features+1, instances-1)
         """
         _target_row = data[feature_to_predict_num:feature_to_predict_num+1, :]
-        _target_row[_target_row == 0] += np.finfo(float).eps
         _target_row_pct_change = (_target_row[:, 1:] - _target_row[:, :-1]) / _target_row[:, :-1]
 
         _mask_still = (threshold_fall < _target_row_pct_change) & (_target_row_pct_change < threshold_rise)

@@ -1,3 +1,5 @@
 from .metrics import *
 
-__all__ = metrics.__all__
+__all__ = [
+    *metrics.__all__,
+]

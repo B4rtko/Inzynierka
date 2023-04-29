@@ -3,18 +3,16 @@ import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
-import shutil
 import tensorflow as tf
 import yaml
 
 from datetime import datetime
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import confusion_matrix
-from typing import List, Union
+from typing import List, Tuple, Union
 
-from src import *
 from src.Metrics import f1_m
-
+from src.Preprocessing import DataProcess
 
 data_filename_dict = {
     "wig_20": ["Data", "wig20_d.csv"],
@@ -33,7 +31,7 @@ class TrainCDT_1D:
         convolution_layers_count: int = 7,
         dense_layers_units: List[int] = (1000, 500),  # dense layers' units except of last softmax layer
         epoch_count: int = 10000,
-        data_filename: Union[List[str], str] = ("Data", "2_Extracted", "Tesla_5.csv"),
+        data_filename: Union[Tuple[str], List[str], str] = ("Data", "2_Extracted", "Tesla_5.csv"),
         threshold_fall: float = -0.001,
         threshold_rise: float = 0.001,
         learning_rate: float = 1e-4,
@@ -44,12 +42,12 @@ class TrainCDT_1D:
         batch_size: int = None,
         metrics = (f1_m,),
         early_stopping_params = None,
-        dir_path_suffix: str = None,
+        dir_path_suffix: str = "",
     ):
         self.convolution_layers_count = convolution_layers_count
         self.dense_layers_units = dense_layers_units
         self.epoch_count = epoch_count
-        self.data_filename = os.path.join(*data_filename) if type(data_filename) == list\
+        self.data_filename = os.path.join(*data_filename) if type(data_filename) in (list, tuple)\
             else os.path.join(*data_filename_dict[data_filename])
         self.threshold_fall = threshold_fall
         self.threshold_rise = threshold_rise
@@ -60,16 +58,19 @@ class TrainCDT_1D:
         self.balance_training_dataset = balance_training_dataset
         self.batch_size = 3**(self.convolution_layers_count-2) if batch_size is None\
             else batch_size
-        self.metrics = [metrics_dict[m] for m in metrics]
+        self.metrics = [
+            metrics_dict[m] if type(m)==str else m for m in metrics
+        ]
         self.early_stopping_params = early_stopping_params
 
         self.model_save_dir = os.path.join(
             "Models",
             "CDT_1D",
             os.path.basename(self.data_filename)[:os.path.basename(self.data_filename).find(".")],
-            "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + dir_path_suffix
+            datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + dir_path_suffix
         )
         os.makedirs(self.model_save_dir, exist_ok=True)
+        os.makedirs(os.path.join(self.model_save_dir, "Figures"), exist_ok=True)
 
         self.model_callbacks = []
 
@@ -105,6 +106,7 @@ class TrainCDT_1D:
         self.__model_fit()
         self.__model_evaluate_validation()
         self.__model_evaluate_test()
+        self.__model_history_to_csv()
         self.__model_training_history_visualise()
 
     def __data_load(self):
@@ -127,7 +129,7 @@ class TrainCDT_1D:
         - saves result datasets to attributes.
         """
         self.data_pipeline = DataProcess(
-            self._data,
+            self.data,
             test_ratio = self.test_ratio,
             validation_ratio = self.validation_ratio,
             batch_size = self.batch_size,
@@ -157,7 +159,7 @@ class TrainCDT_1D:
 
         self.model.add(tf.keras.layers.Flatten())
         for units in self.dense_layers_units:
-            self.model.add(tf.keras.layers.Dense(units))
+            self.model.add(tf.keras.layers.Dense(units, activation="relu"))
         self.model.add(tf.keras.layers.Dense(3, activation="softmax"))
 
         self.model.build(input_shape=self._x_train.shape[1:])
@@ -168,10 +170,11 @@ class TrainCDT_1D:
         #               )
         self.model.compile(
             optimizer=tf.keras.optimizers.Adam(
-                learning_rate = self.learning_rate
+                learning_rate=self.learning_rate
             ),
             loss=tf.keras.losses.CategoricalCrossentropy(),
-            metrics = self.metrics
+            metrics=self.metrics,
+            # run_eagerly=True,
         )
 
     def __model_fit(self):
@@ -217,7 +220,7 @@ class TrainCDT_1D:
     def __model_evaluate_validation(self):
         """
         Method performs evaluation of model performance on validation dataset and saves the scores.
-        Current performace measures:
+        Current performance measures:
         - confusion matrix
         """
         # self.model.evaluate(self._x_validation, self._y_validation)
@@ -237,6 +240,13 @@ class TrainCDT_1D:
         pred_test_ind = np.argmax(pred_test, axis=1)
 
         confusion_matrix(self._y_test_ind, pred_test_ind)
+        
+    def __model_history_to_csv(self):
+        pd.DataFrame(self.model_history.history).to_csv(
+            os.path.join(self.model_save_dir, "Metrics_and_losses.csv"),
+            index=False,
+            errors="ignore",
+        )
 
     def __model_training_history_visualise(self):
         """
@@ -244,8 +254,8 @@ class TrainCDT_1D:
         """
         for _metric in self.model_history.history.keys():
             _fig, ax = plt.subplots(figsize=(10,10))
-            sns.lineplot(x=np.arange(len(self.model_history.history["loss"]))+1, y=self.model_history.history["loss"], ax=ax[0], label=_metric)
-            _fig.savefig(os.path.join(self.model_save_dir, "Figures", _metric + "png"))
+            sns.lineplot(x=np.arange(len(self.model_history.history[_metric]))+1, y=self.model_history.history[_metric], ax=ax, label=_metric)
+            _fig.savefig(os.path.join(self.model_save_dir, "Figures", _metric + ".png"))
 
 
 __all__ = [
@@ -255,4 +265,3 @@ __all__ = [
 
 if __name__ == "__main__":
     pass
-

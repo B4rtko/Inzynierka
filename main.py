@@ -32,7 +32,7 @@ def run(
         _model_class(
             **config,
             dir_path_suffix=str(i)
-        ) for (config, i) in enumerate(config_cases)
+        ) for (i, config) in enumerate(config_cases)
     ]
     for (model, config) in zip(model_list, config_cases):
         with open(os.path.join(model.model_save_dir, "config.yaml"), 'w') as f:
@@ -41,7 +41,7 @@ def run(
                 f,
                 default_flow_style=False
             )
-
+    
     with multiprocessing.Pool(_pool_workers) as p:
         p.map(_run_task, model_list)
 
@@ -59,7 +59,8 @@ def config_unpack_cases(
         config_params = yaml.safe_load(f)
     
     config_keys = list(config_params.keys())
-    config_cases = [{k: v for (k, v) in zip(config_keys, case)} for case in itertools.product(*config_keys)]
+    _config_cases_generator = itertools.product(*[config_params[k] for k in config_keys])
+    config_cases = [dict(zip(config_keys, case)) for case in _config_cases_generator]
     return config_cases
 
 
@@ -73,9 +74,11 @@ def _run_task(_model):
 
 
 if __name__ == '__main__':
+    # a = TrainCDT_1D()
+    # a.run()
     config_file_path = os.path.join("Configs", "Crude_Oil_5.yaml")
     model_class = TrainCDT_1D
-    pool_workers = None
+    pool_workers = 1 #None
 
     run(
         _config_file_path=config_file_path,

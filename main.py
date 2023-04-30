@@ -8,7 +8,8 @@ from typing import List, Dict
 
 
 def run(
-    _config_file_path: str,
+    _config_mode: str,
+    _data_name: str,
     _model_class=TrainCDT_1D,
     _pool_workers: int = None
 ):
@@ -17,24 +18,28 @@ def run(
         of given class. Training is performed for all cases written in
         given config file.
 
-    :param _config_file_path: _description_
-    :type _config_file_path: str
+    :param _config_cases: _description_
     :param _model_class: _description_, defaults to TrainCDT_1D
     :type _model_class: _type_, optional
     :param _pool_workers: _description_, defaults to None
     :type _pool_workers: int, optional
     """
+    _config_cases = _get_configs_by_mode(
+        _config_mode,
+        _data_name,
+    )
+
     _pool_workers = multiprocessing.cpu_count() if _pool_workers is None\
         else _pool_workers
-    config_cases = config_unpack_cases(_config_file_path)
-    
+
+
     model_list = [
         _model_class(
             **config,
             dir_path_suffix=str(i)
-        ) for (i, config) in enumerate(config_cases)
+        ) for (i, config) in enumerate(_config_cases)
     ]
-    for (model, config) in zip(model_list, config_cases):
+    for (model, config) in zip(model_list, _config_cases):
         with open(os.path.join(model.model_save_dir, "config.yaml"), 'w') as f:
             yaml.dump(
                 config,
@@ -46,7 +51,7 @@ def run(
         p.map(_run_task, model_list)
 
 
-def config_unpack_cases(
+def _config_unpack_cases(
     _config_file_path: str
 ) -> List[Dict]:
     """
@@ -73,13 +78,78 @@ def _run_task(_model):
     _model.run()
 
 
+def _config_get_from_directory(
+    _directory_path
+) -> List[Dict]:
+    _config_yaml_list = []
+    _config_cases_list = []
+    
+    for root, dirs, files in os.walk(_directory_path):
+        for f in files:
+            if f.endswith(".yaml") or f.endswith(".yml"):
+                _config_yaml_list.append(os.path.join(root, f))
+    if not _config_yaml_list:
+        raise Exception("No config ccases found")
+    
+    for _config_yaml_path in _config_yaml_list:
+        with open(_config_yaml_path) as f:
+            _config_cases_list.append(yaml.safe_load(f))
+    return _config_cases_list
+    
+    
+
+def _get_configs_by_mode(
+    _mode: str,
+    _data_name: str,
+) -> List[Dict]:
+    _args = _get_config_args_by_mode(_mode, _data_name)
+
+    if _mode == "from_yaml":
+        return _config_unpack_cases(*_args)
+    elif _mode == "from_uncompleted":
+        return _config_get_from_directory(*_args)
+    else:
+        raise Exception(f"Unknown mode: '{_mode}'")
+
+
+def _get_config_args_by_mode(
+    _mode: str,
+    _data_name: str,
+) -> List:
+    if _mode == "from_yaml":
+        return [
+            os.path.join("Configs", _data_name + ".yaml"),
+        ]
+    elif _mode == "from_uncompleted":
+        return [
+            os.path.join("Models", "CDT_1D", _data_name, "Uncompleted"),
+        ]
+    else:
+        raise Exception(f"Unknown mode: '{_mode}'")
+
+
+
 if __name__ == '__main__':
-    config_file_path = os.path.join("Configs", "Crude_Oil_5.yaml")
+    data_name = \
+    "Crude_Oil_5"
+    "Tesla_5"
+
+    config_mode = \
+    "from_yaml"
+    "from_uncompleted"
+
     model_class = TrainCDT_1D
-    pool_workers = None
+    
+    pool_workers = \
+        2
+        # None
+        # 1
+        # 4
+    
 
     run(
-        _config_file_path=config_file_path,
+        _config_mode=config_mode,
+        _data_name=data_name,
         _model_class=model_class,
         _pool_workers=pool_workers
     )

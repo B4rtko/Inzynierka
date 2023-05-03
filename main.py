@@ -89,7 +89,7 @@ def _config_get_from_directory(
             if f.endswith(".yaml") or f.endswith(".yml"):
                 _config_yaml_list.append(os.path.join(root, f))
     if not _config_yaml_list:
-        raise Exception("No config ccases found")
+        raise Exception("No config cases found")
     
     for _config_yaml_path in _config_yaml_list:
         with open(_config_yaml_path) as f:
@@ -131,8 +131,10 @@ def _get_config_args_by_mode(
 
 if __name__ == '__main__':
     data_name = \
-    "Crude_Oil_5"
+    "DJI_5"
+    "Apple_5"
     "Tesla_5"
+    "Crude_Oil_5"
 
     config_mode = \
     "from_yaml"
@@ -141,10 +143,10 @@ if __name__ == '__main__':
     model_class = TrainCDT_1D
     
     pool_workers = \
-        2
-        # None
-        # 1
-        # 4
+    None
+    2
+    1
+    4
     
 
     run(

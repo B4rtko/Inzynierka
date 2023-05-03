@@ -10,7 +10,7 @@ item_value_volume_span_class = "pane-legend-item-value pane-legend-line"
 
 
 def _load_from_json(instrument_name):
-    with open(os.path.join('..', '..', 'Data', '1_Raw', instrument_name + '.json'), 'r', encoding='utf-8') as f:
+    with open(os.path.join('Data', '1_Raw', instrument_name + '.json'), 'r', encoding='utf-8') as f:
         data_raw_dict = json.load(f)
 
     return list(data_raw_dict.values())
@@ -103,7 +103,7 @@ def extract_data_to_dataframe(
     df = _dataframe_remove_last_duplicates(df)
 
     if save_to_csv:
-        df.to_csv(os.path.join('..', '..', 'Data', '2_Extracted', instrument_name + '.csv'))
+        df.to_csv(os.path.join('Data', '2_Extracted', instrument_name + '.csv'))
 
     return df
 
@@ -111,7 +111,12 @@ def extract_data_to_dataframe(
 if __name__ == "__main__":
     instrument_name_list = [
         # "Crude_Oil_5",
-        "Tesla_5",
+        # "Tesla_5",
+        # "DJI_5",
+        # "Apple_5",
+        "Amazon_5",
     ]
-    extract_data_to_dataframe(instrument_name_list[0], True)
+    
+    for instrument in instrument_name_list:
+        extract_data_to_dataframe(instrument, True)
 

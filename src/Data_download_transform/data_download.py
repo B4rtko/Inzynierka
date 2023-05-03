@@ -7,16 +7,30 @@ from pynput import keyboard
 from typing import List
 
 
+def on_release_start(key):
+    if key == keyboard.Key.shift_r:
+        global flag_start
+        flag_start = True
+        return False
+
+def on_release_finish(key):
+    if key == keyboard.Key.shift_r:
+        global flag_finish
+        flag_finish = True
+        return False
+
+
 def _scrap_investing_com_step():
     """
     function changes focus to window below (html inspector), copies selected part of html,
         goes back to window above (browser window) and returns element from clipboard.
     :return: Copied html part
     """
+    time.sleep(.001)
     pag.hotkey("win", "down")
     time.sleep(.001)
     pag.hotkey("ctrl", "c")
-    time.sleep(.01)
+    time.sleep(.001)
     pag.hotkey("win", "up")
     time.sleep(.001)
     return pyperclip.paste()
@@ -24,20 +38,25 @@ def _scrap_investing_com_step():
 
 def _scrap_investing_com(
         steps: int,
-        _data_list: list,
 ) -> List:
     """
     function walks through 'steps' number of steps of copying data from html inspector and returns list with results.
         function also populates given '_data list' - it is useful when running from jupyter notebook instead of script.
     :param steps: number of iterations of data scraping
-    :param _data_list: container to fill
-    :return: list populated with scrapped html data
+    :return: list with scrapped html data
     """
-    for i in range(steps):
-        if i%100 == 0:
-            print(i)
+    _data_list = []
+    global flag_finish
+
+    print(3)
+    for _ in range(steps):
+        print(4)
+        if flag_finish:
+            break
+
         _data_list.append(_scrap_investing_com_step())
         pag.press("right")
+
     return _data_list
 
 
@@ -66,28 +85,33 @@ def scrap_main(
 
     :param filename: json path to save scrapped results
     """
-    data_container = []
-    flag = 0
-    with keyboard.Events() as events:
-        while True:
-            for event in events:
-                if event.key == keyboard.Key.shift_r:
-                    flag = 1
-                    time.sleep(1)
-                    # add try except on KeyboardInterrupt
-                    try:
-                        _scrap_investing_com(7_000, data_container)
-                    except KeyboardInterrupt:
-                        break
+    global flag_start
 
-            if flag == 1:
-                break
+    with keyboard.Listener(
+        on_press=lambda key: None,
+        on_release=on_release_start
+    ) as listener:
+        while not flag_start:
+            pass
+
+        print(2)
+        listener.join()
+        time.sleep(1)
+
+    with keyboard.Listener(
+        on_press=lambda key: None,
+        on_release=on_release_finish
+    ) as listener:
+        data_container = _scrap_investing_com(6000)
+
     data_dict = {k: v for (k, v) in enumerate(data_container)}
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(data_dict, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
-    scrap_main("DJI_5.json")
+    flag_start = False
+    flag_finish = False
+    scrap_main("Amazon_5.json")
 
 

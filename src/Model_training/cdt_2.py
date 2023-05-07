@@ -1,9 +1,21 @@
-# so far unused
-
+# trash: 24.04
 import os
 import pandas as pd
 import tensorflow as tf
 from src import *
+
+
+class TrainCDT_1D:
+    def __init__(self):
+        pass
+    
+    def run(self):
+        pass
+
+
+
+
+
 
 
 def run(

@@ -10,6 +10,7 @@ from typing import List, Dict, Tuple, Union
 from datetime import datetime
 
 from src.Model_training.cdt_1d import metrics_dict
+from src.Model_comparing.modules import ModelComparerMetricBetweenModels
 
 
 class ModelComparer:
@@ -22,10 +23,6 @@ class ModelComparer:
 
         self.model_paths = self._get_available_paths_with_models(self.base_path)
         self.model_config_metrics_dict = dict()
-        self.defaulf_kwargs_subplot = {
-            "figsize": (25, 15)
-        }
-        self.defaulf_kwargs_seaborn = dict()
         
     def populate_model_config_metrics_dict(self):
         self.model_config_metrics_dict = self._get_model_config_metrics_dict(self.model_paths)
@@ -37,97 +34,77 @@ class ModelComparer:
         save_path: str = None,
         subplots_kwargs: dict = None,
         seaborn_kwargs: dict = None,
+        colormap: Union[str, mpl.colors.ListedColormap] = None,
     ) -> plt.figure:
-        subplots_kwargs = self.defaulf_kwargs_subplot if subplots_kwargs is None else subplots_kwargs
-        seaborn_kwargs = self.defaulf_kwargs_seaborn if seaborn_kwargs is None else seaborn_kwargs
-        save_path = self._generate_plot_save_path(metric, config_params_to_label) if save_path is None else save_path
-        
-        fig, ax = plt.subplots(**subplots_kwargs)
-
-        self._compare_metric_plot_on_ax(
+        comparer = ModelComparerMetricBetweenModels(
             metric=metric,
+            base_path=self.base_path,
+            model_config_metrics_dict=self.model_config_metrics_dict,
             config_params_to_label=config_params_to_label,
-            ax=ax,
-            seaborn_kwargs=seaborn_kwargs
+            save_path=save_path,
+            subplots_kwargs=subplots_kwargs,
+            seaborn_kwargs=seaborn_kwargs,
+            colormap=colormap,
         )
+        return comparer.generate_plot()
+    
+    # def compare_metrics_of_one_model(self):
+    #     if subplots_kwargs is None:
+    #         subplots_kwargs = self.defaulf_kwargs_subplot.copy()
+    #         _figsize = seaborn_kwargs["figsize"]
+    #         seaborn_kwargs["figsize"] = (_figsize[0], _figsize[1]*2)
+
+    #     seaborn_kwargs = self.defaulf_kwargs_seaborn if seaborn_kwargs is None else seaborn_kwargs
+
+    #     save_path = self._generate_plot_save_path_compare_metrics_of_one_model(
+    #         plot_name = "compare_metrics_of_one_model",
+    #         label_params = config_params_to_label,
+    #         type_for_dirname = metric
+    #     ) if save_path is None else save_path
         
-        ax = self._legend_adjust(
-            _ax = ax,
-            _loc = "upper left",
-            _bbox_to_anchor = (1, 1),
-            _cmap = mpl.colormaps["tab20"],
-        )
+    #     fig, ax = plt.subplots((2, 1), **subplots_kwargs)
+
+    #     self._compare_metric_plot_on_ax(
+    #         metric=metric,
+    #         config_params_to_label=config_params_to_label,
+    #         ax=ax,
+    #         seaborn_kwargs=seaborn_kwargs
+    #     )
+        
+    #     ax = self._legend_adjust(
+    #         _ax = ax,
+    #         _loc = "upper left",
+    #         _bbox_to_anchor = (1, 1),
+    #         _cmap = mpl.colormaps["tab20"],
+    #     )
                 
-        fig.suptitle(
-            f"Metric '{metric}' of {len(self.model_config_metrics_dict.keys())} models\n"
-            f"with differance in parameters described in legend\n"
-            f"from '{self.base_path}'"
-        )
+    #     fig.suptitle(
+    #         f"Metric '{metric}' of {len(self.model_config_metrics_dict.keys())} models\n"
+    #         f"with differance in parameters described in legend\n"
+    #         f"from '{self.base_path}'"
+    #     )
         
-        fig.savefig(save_path, bbox_inches="tight")
-    
-    @staticmethod
-    def _legend_adjust(
-        _ax: plt.Axes,
-        _loc: str = "upper left",
-        _bbox_to_anchor: Tuple[int, int] = (1, 1),
-        _cmap = mpl.colormaps["tab20"]
-    ):
-        lines = _ax.lines
-        colors = _cmap(range(len(lines)))
-        for line, c in zip(lines, colors):
-            line.set_color(c)
-        
-        _ax.legend(loc=_loc, bbox_to_anchor=_bbox_to_anchor)
+    #     fig.savefig(save_path, bbox_inches="tight")
 
-        
-    
-    def _compare_metric_plot_on_ax(
-        self,
-        metric: str,
-        config_params_to_label: List,
-        ax: plt.axis,
-        seaborn_kwargs: dict,
-    ):
-        for k in self.model_config_metrics_dict.keys():
-            _config = self.model_config_metrics_dict[k]["config"]
-            _metric_df = self.model_config_metrics_dict[k]["metrics"][[metric]]
-            _label = self._dict_to_label_string(
-                {_param: str(_config[_param]) for _param in config_params_to_label},
-                _model_path=k
-            )
-            
-            sns.lineplot(
-                data=_metric_df,
-                x=_metric_df.index,
-                y=metric, ax=ax,
-                label=_label,
-                **seaborn_kwargs
-            )
-    
-    def _generate_plot_save_path(
-        self,
-        metric: str,
-        label_params: List
-    ) -> str:
-        path_dir = os.path.join(
-            "Plots",
-            "Model_comparing",
-            self.base_path.replace(os.pathsep, "_"),
-            metric
-        )
-        os.makedirs(path_dir, exist_ok=True)
 
-        path_filename = metric + "_" + "_".join(label_params) + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".png"
-        return os.path.join(path_dir, path_filename)
-            
-            
-    @staticmethod
-    def _dict_to_label_string(
-        _dict: Dict,
-        _model_path: str = None,
-    ):
-        return ",\n".join([f"{_key}={_value}" for (_key, _value) in _dict.items()]) + f"\nmodel_path={_model_path}"
+    # def _generate_plot_save_path_compare_metrics_of_one_model(
+    #     self,
+    #     plot_name: str,
+    #     label_params: List,
+    #     type_for_dirname: str,
+    # ) -> str:
+    #     path_dir = os.path.join(
+    #         "Plots",
+    #         "Metrics_of_one_model_comparing",
+    #         self.base_path.replace(os.pathsep, "_"),
+    #         type_for_dirname
+    #     )
+    #     os.makedirs(path_dir, exist_ok=True)
+
+    #     path_filename = plot_name + \
+    #         "_" + "_".join(label_params) + \
+    #         "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".png"
+    #     return os.path.join(path_dir, path_filename)
     
     @staticmethod
     def _get_available_paths_with_models(
@@ -186,7 +163,7 @@ class ModelComparer:
         path: str
     ) -> pd.DataFrame:
         return pd.read_csv(path)
-    
+
 
 __all__ = [
     "ModelComparer",

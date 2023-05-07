@@ -5,12 +5,12 @@ import pandas as pd
 import seaborn as sns
 import yaml
 
-from tensorflow.keras.models import load_model
+from keras.models import load_model
 from typing import List, Dict, Tuple, Union
 from datetime import datetime
 
 from src.Model_training.cdt_1d import metrics_dict
-from src.Model_comparing.modules import ModelComparerMetricBetweenModels
+from src.Model_comparing.modules import *
 
 
 class ModelComparer:
@@ -26,6 +26,27 @@ class ModelComparer:
         
     def populate_model_config_metrics_dict(self):
         self.model_config_metrics_dict = self._get_model_config_metrics_dict(self.model_paths)
+    
+    def compare_metrics_of_one_model(
+        self,
+        metric_1: str = "loss",
+        metric_2: str = "f1_m",
+        config_params_to_title: List = None,
+        subplots_kwargs: dict = None,
+        seaborn_kwargs: dict = None,
+        colormap: Union[str, mpl.colors.ListedColormap] = None,
+    ) -> plt.figure:
+        comparer = ModelComparerMetricsOneModel(
+            base_path=self.base_path,
+            model_config_metrics_dict=self.model_config_metrics_dict,
+            metric_1=metric_1,
+            metric_2=metric_2,
+            config_params_to_title=config_params_to_title,
+            subplots_kwargs=subplots_kwargs,
+            seaborn_kwargs=seaborn_kwargs,
+            colormap=colormap
+        )
+        return comparer.generate_plot()
     
     def compare_metric_between_models(
         self,
@@ -47,65 +68,7 @@ class ModelComparer:
             colormap=colormap,
         )
         return comparer.generate_plot()
-    
-    # def compare_metrics_of_one_model(self):
-    #     if subplots_kwargs is None:
-    #         subplots_kwargs = self.defaulf_kwargs_subplot.copy()
-    #         _figsize = seaborn_kwargs["figsize"]
-    #         seaborn_kwargs["figsize"] = (_figsize[0], _figsize[1]*2)
-
-    #     seaborn_kwargs = self.defaulf_kwargs_seaborn if seaborn_kwargs is None else seaborn_kwargs
-
-    #     save_path = self._generate_plot_save_path_compare_metrics_of_one_model(
-    #         plot_name = "compare_metrics_of_one_model",
-    #         label_params = config_params_to_label,
-    #         type_for_dirname = metric
-    #     ) if save_path is None else save_path
         
-    #     fig, ax = plt.subplots((2, 1), **subplots_kwargs)
-
-    #     self._compare_metric_plot_on_ax(
-    #         metric=metric,
-    #         config_params_to_label=config_params_to_label,
-    #         ax=ax,
-    #         seaborn_kwargs=seaborn_kwargs
-    #     )
-        
-    #     ax = self._legend_adjust(
-    #         _ax = ax,
-    #         _loc = "upper left",
-    #         _bbox_to_anchor = (1, 1),
-    #         _cmap = mpl.colormaps["tab20"],
-    #     )
-                
-    #     fig.suptitle(
-    #         f"Metric '{metric}' of {len(self.model_config_metrics_dict.keys())} models\n"
-    #         f"with differance in parameters described in legend\n"
-    #         f"from '{self.base_path}'"
-    #     )
-        
-    #     fig.savefig(save_path, bbox_inches="tight")
-
-
-    # def _generate_plot_save_path_compare_metrics_of_one_model(
-    #     self,
-    #     plot_name: str,
-    #     label_params: List,
-    #     type_for_dirname: str,
-    # ) -> str:
-    #     path_dir = os.path.join(
-    #         "Plots",
-    #         "Metrics_of_one_model_comparing",
-    #         self.base_path.replace(os.pathsep, "_"),
-    #         type_for_dirname
-    #     )
-    #     os.makedirs(path_dir, exist_ok=True)
-
-    #     path_filename = plot_name + \
-    #         "_" + "_".join(label_params) + \
-    #         "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".png"
-    #     return os.path.join(path_dir, path_filename)
-    
     @staticmethod
     def _get_available_paths_with_models(
         base_path: str

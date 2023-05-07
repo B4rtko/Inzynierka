@@ -48,13 +48,11 @@ class ModelComparerMetricBetweenModels:
     def generate_plot(self) -> plt.figure:
         fig, ax = plt.subplots(**self.subplots_kwargs)
 
-        self._compare_metric_plot_on_ax(
+        self._generate_plot_on_ax(
             metric=self.metric,
-            config_params_to_label=self.config_params_to_label,
             ax=ax,
-            seaborn_kwargs=self.seaborn_kwargs
         )
-        ax = legend_adjust(
+        legend_adjust(
             _ax = ax,
             _loc = "upper left",
             _bbox_to_anchor = (1, 1),
@@ -65,6 +63,11 @@ class ModelComparerMetricBetweenModels:
             f"with differance in parameters described in legend\n"
             f"from '{self.base_path}'"
         )
+        plt.grid(
+            figure=fig,
+            alpha=0.6
+        )
+
         fig.savefig(self.save_path, bbox_inches="tight")
         plt.close(fig)
         return fig
@@ -78,7 +81,7 @@ class ModelComparerMetricBetweenModels:
         path_dir = os.path.join(
             "Plots",
             "Model_comparing",
-            self.base_path.replace(os.pathsep, "_"),
+            self.base_path.replace(os.sep, "_"),
             type_for_dirname
         )
         os.makedirs(path_dir, exist_ok=True)
@@ -88,28 +91,31 @@ class ModelComparerMetricBetweenModels:
             "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".png"
         return os.path.join(path_dir, path_filename)
     
-    def _compare_metric_plot_on_ax(
+    def _generate_plot_on_ax(
         self,
         metric: str,
-        config_params_to_label: List,
-        ax: plt.axis,
-        seaborn_kwargs: dict,
+        ax: plt.Axes,
     ):
         for k in self.model_config_metrics_dict.keys():
             _config = self.model_config_metrics_dict[k]["config"]
             _metric_df = self.model_config_metrics_dict[k]["metrics"][[metric]]
             _label = dict_to_label_string(
-                {_param: str(_config[_param]) for _param in config_params_to_label},
+                {_param: str(_config[_param]) for _param in self.config_params_to_label},
                 _model_path=k
             )
             
             sns.lineplot(
                 data=_metric_df,
                 x=_metric_df.index,
-                y=metric, ax=ax,
+                y=metric,
+                ax=ax,
                 label=_label,
-                **seaborn_kwargs
+                **self.seaborn_kwargs
             )
+        ax.locator_params(nbins=20, axis='x')
+        ax.locator_params(nbins=20, axis='y')
+
+            
 
 
 __all__ = [

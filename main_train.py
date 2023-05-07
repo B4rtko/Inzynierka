@@ -131,6 +131,7 @@ def _get_config_args_by_mode(
 
 if __name__ == '__main__':
     data_name = \
+    "Amazon_5"
     "DJI_5"
     "Apple_5"
     "Tesla_5"

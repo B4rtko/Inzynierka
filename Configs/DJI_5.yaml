@@ -31,6 +31,7 @@ batch_size:
   - null
 metrics:
   - - "f1_m"
+    - "f1_weighted"
 # early_stopping_params:
 #   - monitor: "val_loss"
 #     mode: "min"

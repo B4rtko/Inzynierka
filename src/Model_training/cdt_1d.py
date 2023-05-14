@@ -11,7 +11,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Union
 
-from src.Metrics import f1_m
+from src.Metrics import f1_m, f1_weighted
 from src.Preprocessing import DataProcess
 
 data_filename_dict = {
@@ -21,6 +21,7 @@ data_filename_dict = {
 
 metrics_dict = {
     "f1_m": f1_m,
+    "f1_weighted": f1_weighted
 }
 
 
@@ -40,7 +41,7 @@ class TrainCDT_1D:
         feature_to_predict_num: int = 3,
         balance_training_dataset: bool = True,
         batch_size: int = None,
-        metrics = (f1_m,),
+        metrics = (f1_m, f1_weighted),
         early_stopping_params = None,
         dir_path_suffix: str = "",
     ):

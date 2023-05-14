@@ -7,15 +7,15 @@ dense_layers_units:
   - [1500, 1000, 500]
   - [750, 500, 250]
 epoch_count:
-  - 2000
+  - 500
 data_filename:
   -  - "Data"
      - "2_Extracted"
-     - "Crude_Oil_5.csv"
+     - "Amazon_5.csv"
 threshold_fall:
-  - -0.001
+  - -0.00067
 threshold_rise:
-  - 0.001
+  - 0.00047
 learning_rate:
   - 0.001
   - 0.0001

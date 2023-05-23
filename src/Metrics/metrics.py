@@ -1,5 +1,9 @@
-from keras import backend as K
+import functools
 import tensorflow as tf
+import numpy as np
+
+import keras
+from keras import backend as K
 
 
 beta_1, beta_2, beta_3 = 0.5, 0.125, 0.125
@@ -49,6 +53,95 @@ def f1_m(y_true, y_pred):
     precision = precision_m(y_true, y_pred)
     recall = recall_m(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
+
+
+def confusion_matrix_element_predef(_pred_matrix_index, _true_matrix_index):
+    def _confusion_matrix_element_predef(func):
+        @functools.wraps(func)
+        def wrapped_func(y_true, y_pred):
+            _y_pred_arg = tf.math.argmax(y_pred, axis = -1)
+            _y_true_arg = tf.math.argmax(y_true, axis = -1)
+
+            _y_pred_confusion_mask = _y_pred_arg == _pred_matrix_index
+            _y_true_confusion_mask = _y_true_arg == _true_matrix_index
+
+            return func(_y_pred_confusion_mask, _y_true_confusion_mask)
+        return wrapped_func
+    return _confusion_matrix_element_predef
+
+
+def _confusion_matrix_value_calculation(_y_pred_mask, _y_true_mask):
+    # return tf.math.count_nonzero(tf.logical_and(_y_pred_mask, _y_true_mask))
+    # return K.sum(tf.cast(tf.logical_and(_y_pred_mask, _y_true_mask), tf.int64))
+    return tf.cast(K.sum(tf.cast(tf.logical_and(_y_pred_mask, _y_true_mask), tf.int64)), tf.int64)
+
+
+# @confusion_matrix_element_predef(0, 0)
+# def confusion_matrix_pred_0_true_0(_y_pred_down_mask, _y_true_down_mask):
+#     return _confusion_matrix_value_calculation(_y_pred_down_mask, _y_true_down_mask)
+
+# def confusion_matrix_pred_0_true_0(y_true, y_pred):
+#     # return K.sum(K.round(K.clip(K.constant([1., 0., 0.]) * y_pred, 0, 1)))
+#     return type(y_true)
+
+def confusion_matrix_pred_0_true_0(y_true, y_pred):
+    y_true, y_pred = np.argmax(y_true.numpy(), axis=-1), np.argmax(y_pred.numpy(), axis=-1)
+    return np.sum((y_true == 0) & (y_pred == 0))
+    
+
+def confusion_matrix_pred_0_true_1(y_true, y_pred):
+    return K.sum(y_pred)
+
+# class confusion_matrix_pred_0_true_0(keras.callbacks.Callback):
+#     def __init__(self, model, x_test, y_test):
+#         self.model = model
+#         self.x_test = x_test
+#         self.y_test = y_test
+
+#     def on_epoch_end(self, epoch, logs={}):
+#         y_pred = self.model.predict(self.x_test, self.y_test)
+#         print('confusion_0_0: ', y_pred)
+
+
+
+# @confusion_matrix_element_predef(0, 1)
+# def confusion_matrix_pred_0_true_1(_y_pred_down_mask, _y_true_flat_mask):
+#     return _confusion_matrix_value_calculation(_y_pred_down_mask, _y_true_flat_mask)
+
+
+@confusion_matrix_element_predef(0, 2)
+def confusion_matrix_pred_0_true_2(_y_pred_down_mask, _y_true_up_mask):
+    return _confusion_matrix_value_calculation(_y_pred_down_mask, _y_true_up_mask)
+
+
+@confusion_matrix_element_predef(1, 0)
+def confusion_matrix_pred_1_true_0(_y_pred_flat_mask, _y_true_down_mask):
+    return _confusion_matrix_value_calculation(_y_pred_flat_mask, _y_true_down_mask)
+
+
+@confusion_matrix_element_predef(1, 1)
+def confusion_matrix_pred_1_true_1(_y_pred_flat_mask, _y_true_flat_mask):
+    return _confusion_matrix_value_calculation(_y_pred_flat_mask, _y_true_flat_mask)
+
+
+@confusion_matrix_element_predef(1, 2)
+def confusion_matrix_pred_1_true_2(_y_pred_flat_mask, _y_true_up_mask):
+    return _confusion_matrix_value_calculation(_y_pred_flat_mask, _y_true_up_mask)
+
+
+@confusion_matrix_element_predef(2, 0)
+def confusion_matrix_pred_2_true_0(_y_pred_up_mask, _y_true_down_mask):
+    return _confusion_matrix_value_calculation(_y_pred_up_mask, _y_true_down_mask)
+
+
+@confusion_matrix_element_predef(2, 1)
+def confusion_matrix_pred_2_true_1(_y_pred_up_mask, _y_true_flat_mask):
+    return _confusion_matrix_value_calculation(_y_pred_up_mask, _y_true_flat_mask)
+
+
+@confusion_matrix_element_predef(2, 2)
+def confusion_matrix_pred_2_true_2(_y_pred_up_mask, _y_true_up_mask):
+    return _confusion_matrix_value_calculation(_y_pred_up_mask, _y_true_up_mask)
 
 
 def f1_weighted(y_true, y_pred):
@@ -111,6 +204,9 @@ __all__ = [
     "precision_m",
     "f1_m",
     "f1_weighted",
+    "confusion_matrix_pred_0_true_0", "confusion_matrix_pred_0_true_1", "confusion_matrix_pred_0_true_2",
+    "confusion_matrix_pred_1_true_0", "confusion_matrix_pred_1_true_1", "confusion_matrix_pred_1_true_2",
+    "confusion_matrix_pred_2_true_0", "confusion_matrix_pred_2_true_1", "confusion_matrix_pred_2_true_2",
 ]
 
 if __name__ == "__main__":

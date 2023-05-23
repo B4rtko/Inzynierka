@@ -32,6 +32,7 @@ batch_size:
 metrics:
   - - "f1_m"
     - "f1_weighted"
+    - "confusion_matrix"
 # early_stopping_params:
 #   - monitor: "val_loss"
 #     mode: "min"

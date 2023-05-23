@@ -11,7 +11,12 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Union
 
-from src.Metrics import f1_m, f1_weighted
+from src.Metrics import f1_m, f1_weighted, \
+    confusion_matrix_pred_0_true_0, confusion_matrix_pred_0_true_1, confusion_matrix_pred_0_true_2, \
+    confusion_matrix_pred_1_true_0, confusion_matrix_pred_1_true_1, confusion_matrix_pred_1_true_2, \
+    confusion_matrix_pred_2_true_0, confusion_matrix_pred_2_true_1, confusion_matrix_pred_2_true_2
+
+
 from src.Preprocessing import DataProcess
 
 data_filename_dict = {
@@ -21,7 +26,13 @@ data_filename_dict = {
 
 metrics_dict = {
     "f1_m": f1_m,
-    "f1_weighted": f1_weighted
+    "f1_weighted": f1_weighted,
+    "confusion_matrix_pred_0_true_0": confusion_matrix_pred_0_true_0, "confusion_matrix_pred_0_true_1": confusion_matrix_pred_0_true_1, "confusion_matrix_pred_0_true_2": confusion_matrix_pred_0_true_2,
+    "confusion_matrix_pred_1_true_0": confusion_matrix_pred_1_true_0, "confusion_matrix_pred_1_true_1": confusion_matrix_pred_1_true_1, "confusion_matrix_pred_1_true_2": confusion_matrix_pred_1_true_2,
+    "confusion_matrix_pred_2_true_0": confusion_matrix_pred_2_true_0, "confusion_matrix_pred_2_true_1": confusion_matrix_pred_2_true_1, "confusion_matrix_pred_2_true_2": confusion_matrix_pred_2_true_2,
+    "confusion_matrix": [confusion_matrix_pred_0_true_0, confusion_matrix_pred_0_true_1, confusion_matrix_pred_0_true_2,
+                         confusion_matrix_pred_1_true_0, confusion_matrix_pred_1_true_1, confusion_matrix_pred_1_true_2,
+                         confusion_matrix_pred_2_true_0, confusion_matrix_pred_2_true_1, confusion_matrix_pred_2_true_2],
 }
 
 
@@ -59,9 +70,11 @@ class TrainCDT_1D:
         self.balance_training_dataset = balance_training_dataset
         self.batch_size = 3**(self.convolution_layers_count-2) if batch_size is None\
             else batch_size
-        self.metrics = [
-            metrics_dict[m] if type(m)==str else m for m in metrics
-        ]
+
+        self.metrics = []
+        for m in metrics:
+            self.metrics += (metrics_dict[m] if type(metrics_dict[m])==list else [metrics_dict[m]]) if type(m)==str else m
+
         self.early_stopping_params = early_stopping_params
 
         self.model_save_dir = os.path.join(

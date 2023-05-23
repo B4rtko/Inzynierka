@@ -131,11 +131,11 @@ def _get_config_args_by_mode(
 
 if __name__ == '__main__':
     data_name = \
+    "Crude_Oil_5"
     "Amazon_5"
     "DJI_5"
     "Apple_5"
     "Tesla_5"
-    "Crude_Oil_5"
 
     config_mode = \
     "from_yaml"
@@ -144,9 +144,9 @@ if __name__ == '__main__':
     model_class = TrainCDT_1D
     
     pool_workers = \
+    1
     None
     2
-    1
     4
     
 

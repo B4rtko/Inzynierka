@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import yaml
 
-from src.Model_training import TrainCDT_1D
+from src.Model_training import TrainCDT_1D, TrainCNN
 from typing import List, Dict
 
 
@@ -131,9 +131,9 @@ def _get_config_args_by_mode(
 
 if __name__ == '__main__':
     data_name = \
+    "Apple_5"
     "Amazon_5"
     "DJI_5"
-    "Apple_5"
     "Tesla_5"
     "Crude_Oil_5"
 
@@ -141,12 +141,14 @@ if __name__ == '__main__':
     "from_yaml"
     "from_uncompleted"
 
-    model_class = TrainCDT_1D
-    
+    model_class = \
+    TrainCNN    
+    TrainCDT_1D
+
     pool_workers = \
     None
-    2
     1
+    2
     4
     
 

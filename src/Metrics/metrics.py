@@ -1,12 +1,116 @@
-import functools
-import tensorflow as tf
 import numpy as np
+import os
+import tensorflow as tf
 
-import keras
 from keras import backend as K
+from tensorflow import keras
+from typing import Tuple, Union
+
+from metrics_utils import *
 
 
 beta_1, beta_2, beta_3 = 0.5, 0.125, 0.125
+
+
+class StorePredictionsCallback(keras.callbacks.Callback):
+    def __init__(
+        self,
+        validation_data: Tuple[np.ndarray, np.ndarray],
+        name: str = "epoch_end"
+    ) -> None:
+        super(StorePredictionsCallback, self).__init__()
+        self.validation_data = validation_data
+        self.name = name
+        
+        self.y_predictions = []
+        self.y_true = []
+        
+
+    def on_epoch_end(self, epoch, logs=None):
+        # Get predictions for the current epoch
+        y_pred = self.model.predict(self.validation_data[0])
+
+        self.y_predictions.append(y_pred)
+        self.y_true.append(self.validation_data[1])
+    
+    def save(self, base_path: str) -> None:
+        np.save(os.path.join(base_path, self.name + "_val_pred.npy"), np.array(self.y_predictions))
+        np.save(os.path.join(base_path, self.name + "_val_true.npy"), np.array(self.y_true))
+
+    def __init__(self, engine: str) -> None:
+        """
+        :param engine: engine for methods to be used. Possible are in FuncEngine.func_engine_dict.keys()
+        :type engine: str
+        """
+        self.argmax = self.__class__.func_engine_dict["argmax"][engine]
+        self.compare = self.__class__.func_engine_dict["compare"][engine]
+        self.sum = self.__class__.func_engine_dict["sum"][engine]
+        self.mul = self.__class__.func_engine_dict["mul"][engine]
+        self.logical_and = self.__class__.func_engine_dict["logical_and"][engine]
+
+
+@confusion_matrix_element_predef(0, 0)
+def confusion_matrix_pred_0_true_0(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 0 and true class 0"""
+    pass
+
+
+@confusion_matrix_element_predef(1, 0)
+def confusion_matrix_pred_0_true_1(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 0 and true class 1"""
+    pass
+
+
+@confusion_matrix_element_predef(2, 0)
+def confusion_matrix_pred_0_true_2(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 0 and true class 2"""
+    pass
+
+
+@confusion_matrix_element_predef(0, 1)
+def confusion_matrix_pred_1_true_0(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 1 and true class 0"""
+    pass
+
+
+@confusion_matrix_element_predef(1, 1)
+def confusion_matrix_pred_1_true_1(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 1 and true class 1"""
+    pass
+
+
+@confusion_matrix_element_predef(2, 1)
+def confusion_matrix_pred_1_true_2(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 1 and true class 2"""
+    pass
+
+
+@confusion_matrix_element_predef(0, 2)
+def confusion_matrix_pred_2_true_0(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 2 and true class 0"""
+    pass
+
+
+@confusion_matrix_element_predef(1, 2)
+def confusion_matrix_pred_2_true_1(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 2 and true class 1"""
+    pass
+
+
+@confusion_matrix_element_predef(2, 2)
+def confusion_matrix_pred_2_true_2(_y_true: Union[np.ndarray, tf.Tensor], _y_pred: Union[np.ndarray, tf.Tensor]):
+    """Calculates element in confusion matrix for predicted class 2 and true class 2"""
+    pass
+
+
+@confusion_matrix_predef
+def confusion_matrix(_y_true, _y_pred, engine):
+    func_list = [
+        confusion_matrix_pred_0_true_0(engine=engine), confusion_matrix_pred_1_true_0(engine=engine), confusion_matrix_pred_2_true_0(engine=engine),
+        confusion_matrix_pred_0_true_1(engine=engine), confusion_matrix_pred_1_true_1(engine=engine), confusion_matrix_pred_2_true_1(engine=engine),
+        confusion_matrix_pred_0_true_2(engine=engine), confusion_matrix_pred_1_true_2(engine=engine), confusion_matrix_pred_2_true_2(engine=engine),
+    ]
+    return func_list
 
 
 def recall_m(y_true, y_pred):
@@ -55,140 +159,22 @@ def f1_m(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
-def confusion_matrix_element_predef(_pred_matrix_index, _true_matrix_index):
-    def _confusion_matrix_element_predef(func):
-        @functools.wraps(func)
-        def wrapped_func(y_true, y_pred):
-            _y_pred_arg = tf.math.argmax(y_pred, axis = -1)
-            _y_true_arg = tf.math.argmax(y_true, axis = -1)
-
-            _y_pred_confusion_mask = _y_pred_arg == _pred_matrix_index
-            _y_true_confusion_mask = _y_true_arg == _true_matrix_index
-
-            return func(_y_pred_confusion_mask, _y_true_confusion_mask)
-        return wrapped_func
-    return _confusion_matrix_element_predef
-
-
-def _confusion_matrix_value_calculation(_y_pred_mask, _y_true_mask):
-    # return tf.math.count_nonzero(tf.logical_and(_y_pred_mask, _y_true_mask))
-    # return K.sum(tf.cast(tf.logical_and(_y_pred_mask, _y_true_mask), tf.int64))
-    return tf.cast(K.sum(tf.cast(tf.logical_and(_y_pred_mask, _y_true_mask), tf.int64)), tf.int64)
-
-
-# @confusion_matrix_element_predef(0, 0)
-# def confusion_matrix_pred_0_true_0(_y_pred_down_mask, _y_true_down_mask):
-#     return _confusion_matrix_value_calculation(_y_pred_down_mask, _y_true_down_mask)
-
-# def confusion_matrix_pred_0_true_0(y_true, y_pred):
-#     # return K.sum(K.round(K.clip(K.constant([1., 0., 0.]) * y_pred, 0, 1)))
-#     return type(y_true)
-
-def confusion_matrix_pred_0_true_0(y_true, y_pred):
-    y_true, y_pred = np.argmax(y_true.numpy(), axis=-1), np.argmax(y_pred.numpy(), axis=-1)
-    return np.sum((y_true == 0) & (y_pred == 0))
-    
-
-def confusion_matrix_pred_0_true_1(y_true, y_pred):
-    return K.sum(y_pred)
-
-# class confusion_matrix_pred_0_true_0(keras.callbacks.Callback):
-#     def __init__(self, model, x_test, y_test):
-#         self.model = model
-#         self.x_test = x_test
-#         self.y_test = y_test
-
-#     def on_epoch_end(self, epoch, logs={}):
-#         y_pred = self.model.predict(self.x_test, self.y_test)
-#         print('confusion_0_0: ', y_pred)
-
-
-
-# @confusion_matrix_element_predef(0, 1)
-# def confusion_matrix_pred_0_true_1(_y_pred_down_mask, _y_true_flat_mask):
-#     return _confusion_matrix_value_calculation(_y_pred_down_mask, _y_true_flat_mask)
-
-
-@confusion_matrix_element_predef(0, 2)
-def confusion_matrix_pred_0_true_2(_y_pred_down_mask, _y_true_up_mask):
-    return _confusion_matrix_value_calculation(_y_pred_down_mask, _y_true_up_mask)
-
-
-@confusion_matrix_element_predef(1, 0)
-def confusion_matrix_pred_1_true_0(_y_pred_flat_mask, _y_true_down_mask):
-    return _confusion_matrix_value_calculation(_y_pred_flat_mask, _y_true_down_mask)
-
-
-@confusion_matrix_element_predef(1, 1)
-def confusion_matrix_pred_1_true_1(_y_pred_flat_mask, _y_true_flat_mask):
-    return _confusion_matrix_value_calculation(_y_pred_flat_mask, _y_true_flat_mask)
-
-
-@confusion_matrix_element_predef(1, 2)
-def confusion_matrix_pred_1_true_2(_y_pred_flat_mask, _y_true_up_mask):
-    return _confusion_matrix_value_calculation(_y_pred_flat_mask, _y_true_up_mask)
-
-
-@confusion_matrix_element_predef(2, 0)
-def confusion_matrix_pred_2_true_0(_y_pred_up_mask, _y_true_down_mask):
-    return _confusion_matrix_value_calculation(_y_pred_up_mask, _y_true_down_mask)
-
-
-@confusion_matrix_element_predef(2, 1)
-def confusion_matrix_pred_2_true_1(_y_pred_up_mask, _y_true_flat_mask):
-    return _confusion_matrix_value_calculation(_y_pred_up_mask, _y_true_flat_mask)
-
-
-@confusion_matrix_element_predef(2, 2)
-def confusion_matrix_pred_2_true_2(_y_pred_up_mask, _y_true_up_mask):
-    return _confusion_matrix_value_calculation(_y_pred_up_mask, _y_true_up_mask)
-
-
-def f1_weighted(y_true, y_pred):
+@f_1_weighted_predef(beta_1, beta_2, beta_3)
+def f1_weighted(
+    _y_pred_error_type_1: float,
+    _y_pred_error_type_2: int,
+    _y_pred_error_type_3: int,
+    _y_pred_correct,
+    beta_1: float,
+    beta_2: float,
+):
     """
-    Function calculates weighted F-score metric value for Keras model training.
-    Function can be used with multilabel classification for stock market prediction with 3 possible categories,
-        where first indicates price falling, second price staying at the same level and third price rising.
+    Function calculates weighted F-score metric value. Metric elements are calculated inside used decorator.
 
-    :param y_true: Tensor of shape (n_batches, 3) with one-hot indicating true label.
-    :param y_pred: Tensor of shape (n_batches, 3) with predicted probabilities for labels.
-    :return: Calculated value of weighted F-score metric.
+    :param y_true: Tensor of shape (n_batch, n_class=3) with one-hot indicating true label.
+    :param y_pred: Tensor of shape (n_batch, n_class=3) with predicted probabilities for labels.
+    :return: Calculated value of weighted F-score metric
     """
-    global beta_1, beta_2, beta_3
-
-    _y_pred_arg = tf.math.argmax(y_pred, axis = -1)
-    _y_true_arg = tf.math.argmax(y_true, axis = -1)
-    
-    _y_pred_down_mask = _y_pred_arg == 0
-    _y_pred_flat_mask = _y_pred_arg == 1
-    _y_pred_up_mask = _y_pred_arg == 2
-    
-    _y_true_down_mask = _y_true_arg == 0
-    _y_true_flat_mask = _y_true_arg == 1
-    _y_true_up_mask = _y_true_arg == 2
-    
-    _y_pred_up_true_up = tf.logical_and(_y_pred_up_mask, _y_true_up_mask)
-    _y_pred_flat_true_flat = tf.logical_and(_y_pred_flat_mask, _y_true_flat_mask)
-    _y_pred_down_true_down = tf.logical_and(_y_pred_down_mask, _y_true_down_mask)
-    _y_pred_correct = tf.reduce_sum(tf.cast(_y_pred_up_true_up, tf.float64)) \
-        + tf.reduce_sum(tf.cast(_y_pred_down_true_down, tf.float64)) \
-        + tf.reduce_sum(tf.cast(_y_pred_flat_true_flat, tf.float64)) * beta_3**2
-    
-    _y_pred_up_true_down = tf.logical_and(_y_pred_up_mask, _y_true_down_mask)
-    _y_pred_down_true_up = tf.logical_and(_y_pred_down_mask, _y_true_up_mask)
-    _y_pred_error_type_1 = tf.reduce_sum(tf.cast(_y_pred_up_true_down, tf.float64)) \
-        + tf.reduce_sum(tf.cast(_y_pred_down_true_up, tf.float64))
-    
-    _y_pred_up_true_flat = tf.logical_and(_y_pred_up_mask, _y_true_flat_mask)
-    _y_pred_down_true_flat = tf.logical_and(_y_pred_down_mask, _y_true_flat_mask)
-    _y_pred_error_type_2 = tf.reduce_sum(tf.cast(_y_pred_up_true_flat, tf.float64)) \
-        + tf.reduce_sum(tf.cast(_y_pred_down_true_flat, tf.float64))
-    
-    _y_pred_flat_true_down = tf.logical_and(_y_pred_flat_mask, _y_true_down_mask)
-    _y_pred_flat_true_up = tf.logical_and(_y_pred_flat_mask, _y_true_up_mask)
-    _y_pred_error_type_3 = tf.reduce_sum(tf.cast(_y_pred_flat_true_down, tf.float64)) \
-        + tf.reduce_sum(tf.cast(_y_pred_flat_true_up, tf.float64))
-    
     f_score_weighted = ((1 + beta_1**2 + beta_2**2) * _y_pred_correct) \
         / (
             (1 + beta_1**2 + beta_2**2) * _y_pred_correct \
@@ -204,9 +190,11 @@ __all__ = [
     "precision_m",
     "f1_m",
     "f1_weighted",
+    "confusion_matrix",
     "confusion_matrix_pred_0_true_0", "confusion_matrix_pred_0_true_1", "confusion_matrix_pred_0_true_2",
     "confusion_matrix_pred_1_true_0", "confusion_matrix_pred_1_true_1", "confusion_matrix_pred_1_true_2",
     "confusion_matrix_pred_2_true_0", "confusion_matrix_pred_2_true_1", "confusion_matrix_pred_2_true_2",
+    "StorePredictionsCallback",
 ]
 
 if __name__ == "__main__":

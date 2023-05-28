@@ -4,17 +4,13 @@ import os
 import pandas as pd
 import seaborn as sns
 import tensorflow as tf
-import yaml
 
 from datetime import datetime
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Union
 
-from src.Metrics import f1_m, f1_weighted, \
-    confusion_matrix_pred_0_true_0, confusion_matrix_pred_0_true_1, confusion_matrix_pred_0_true_2, \
-    confusion_matrix_pred_1_true_0, confusion_matrix_pred_1_true_1, confusion_matrix_pred_1_true_2, \
-    confusion_matrix_pred_2_true_0, confusion_matrix_pred_2_true_1, confusion_matrix_pred_2_true_2
+from src.Metrics import *
 
 
 from src.Preprocessing import DataProcess
@@ -25,14 +21,13 @@ data_filename_dict = {
 }
 
 metrics_dict = {
-    "f1_m": f1_m,
-    "f1_weighted": f1_weighted,
-    "confusion_matrix_pred_0_true_0": confusion_matrix_pred_0_true_0, "confusion_matrix_pred_0_true_1": confusion_matrix_pred_0_true_1, "confusion_matrix_pred_0_true_2": confusion_matrix_pred_0_true_2,
-    "confusion_matrix_pred_1_true_0": confusion_matrix_pred_1_true_0, "confusion_matrix_pred_1_true_1": confusion_matrix_pred_1_true_1, "confusion_matrix_pred_1_true_2": confusion_matrix_pred_1_true_2,
-    "confusion_matrix_pred_2_true_0": confusion_matrix_pred_2_true_0, "confusion_matrix_pred_2_true_1": confusion_matrix_pred_2_true_1, "confusion_matrix_pred_2_true_2": confusion_matrix_pred_2_true_2,
-    "confusion_matrix": [confusion_matrix_pred_0_true_0, confusion_matrix_pred_0_true_1, confusion_matrix_pred_0_true_2,
-                         confusion_matrix_pred_1_true_0, confusion_matrix_pred_1_true_1, confusion_matrix_pred_1_true_2,
-                         confusion_matrix_pred_2_true_0, confusion_matrix_pred_2_true_1, confusion_matrix_pred_2_true_2],
+    "f1_m": f1_m,  #  todo check if the same results will be with use of callbacks and with manual calculations from confusion matrices
+}
+
+callbacks_dict = {
+    "predictions": StorePredictionsCallback,
+    "f1_weighted": StoreF1WeightedCallback,
+    "confusion_matrix": StoreConfusionMatrixCallback,
 }
 
 
@@ -52,7 +47,8 @@ class TrainCDT_1D:
         feature_to_predict_num: int = 3,
         balance_training_dataset: bool = True,
         batch_size: int = None,
-        metrics = (f1_m, f1_weighted),
+        metrics = (f1_m,),
+        callbacks = (StorePredictionsCallback, StoreF1WeightedCallback, StoreConfusionMatrixCallback),
         early_stopping_params = None,
         dir_path_suffix: str = "",
     ):
@@ -75,6 +71,10 @@ class TrainCDT_1D:
         for m in metrics:
             self.metrics += (metrics_dict[m] if type(metrics_dict[m])==list else [metrics_dict[m]]) if type(m)==str else m
 
+        self.callbacks = []
+        for cb in callbacks:
+            self.callbacks += [metrics_dict[cb]] if type(cb)==str else [cb]
+
         self.early_stopping_params = early_stopping_params
 
         self.model_save_dir = os.path.join(
@@ -85,8 +85,7 @@ class TrainCDT_1D:
         )
         os.makedirs(self.model_save_dir, exist_ok=True)
         os.makedirs(os.path.join(self.model_save_dir, "Figures"), exist_ok=True)
-
-        self.model_callbacks = []
+        os.makedirs(os.path.join(self.model_save_dir, "Callbacks"), exist_ok=True)
 
         self.data = None
         self.data_pipeline = None
@@ -118,8 +117,9 @@ class TrainCDT_1D:
         """
         self.__model_prepare()
         self.__model_fit()
-        self.__model_evaluate_validation()
-        self.__model_evaluate_test()
+        self.__save_after_fit()
+        # self.__model_evaluate_validation()
+        # self.__model_evaluate_test()
         self.__model_history_to_csv()
         self.__model_training_history_visualise()
 
@@ -197,6 +197,10 @@ class TrainCDT_1D:
         Model training history is being saved to 'self.model_history' attribute
         """
 
+        for i, cb in enumerate(self.callbacks):
+            self.callbacks[i] = cb(validation_data=(self._x_validation, self._y_validation), engine="numpy")
+
+
         if self.early_stopping_params:
             _es = tf.keras.callbacks.EarlyStopping(
                 monitor = self.early_stopping_params["monitor"],
@@ -205,7 +209,8 @@ class TrainCDT_1D:
                 patience = self.early_stopping_params["patience"],
                 start_from_epoch = self.early_stopping_params["start_from_epoch"],
             )
-            self.model_callbacks.append(_es)
+            self.callbacks.append(_es)
+        
         # es = tf.keras.callbacks.EarlyStopping(monitor='val_f1_m',
         #                                       mode='max',
         #                                       min_delta=1e-3,
@@ -225,11 +230,20 @@ class TrainCDT_1D:
             self._x_train,
             self._y_train,
             epochs=self.epoch_count,
-            callbacks=self.model_callbacks,
+            callbacks=self.callbacks,
             validation_data=(self._x_validation, self._y_validation),
         )
-
+    
+    def __save_after_fit(self):
+        self.__save_model()
+        self.__save_callbacks()
+    
+    def __save_model(self):
         self.model.save(os.path.join(self.model_save_dir, "Model"))
+    
+    def __save_callbacks(self):
+        for cb in self.callbacks:
+            cb.save(os.path.join(self.model_save_dir, "Callbacks"))
 
     def __model_evaluate_validation(self):
         """

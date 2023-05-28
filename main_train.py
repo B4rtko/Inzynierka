@@ -133,9 +133,9 @@ if __name__ == '__main__':
     data_name = \
     "Apple_5"
     "Amazon_5"
+    "Crude_Oil_5"
     "DJI_5"
     "Tesla_5"
-    "Crude_Oil_5"
 
     config_mode = \
     "from_yaml"

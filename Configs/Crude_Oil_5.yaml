@@ -7,7 +7,7 @@ dense_layers_units:
   - [1500, 1000, 500]
   - [750, 500, 250]
 epoch_count:
-  - 2000
+  - 5
 data_filename:
   -  - "Data"
      - "2_Extracted"
@@ -28,9 +28,11 @@ feature_to_predict_num:
 balance_training_dataset:
   - True
 batch_size:
-  - null
+  - 30
 metrics:
   - - "f1_m"
+    - "f1_weighted"
+    - "confusion_matrix"
 # early_stopping_params:
 #   - monitor: "val_loss"
 #     mode: "min"

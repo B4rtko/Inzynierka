@@ -142,8 +142,8 @@ if __name__ == '__main__':
     "from_uncompleted"
 
     model_class = \
-    TrainCNN    
     TrainCDT_1D
+    TrainCNN    
 
     pool_workers = \
     2

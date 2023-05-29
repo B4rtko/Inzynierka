@@ -82,6 +82,7 @@ class TrainCDT_1D:
             datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + dir_path_suffix
         )
         os.makedirs(self.model_save_dir, exist_ok=True)
+        os.makedirs(os.path.join(self.model_save_dir, "Data"), exist_ok=True)
         os.makedirs(os.path.join(self.model_save_dir, "Figures"), exist_ok=True)
         os.makedirs(os.path.join(self.model_save_dir, "Callbacks"), exist_ok=True)
 
@@ -108,6 +109,7 @@ class TrainCDT_1D:
         """
         self.__data_load()
         self.__data_preprocess()
+        self.__data_save()
 
     def _model_actions(self):
         """
@@ -153,6 +155,19 @@ class TrainCDT_1D:
         self.data_pipeline.run()
         self._x_train, self._y_train, self._x_validation, self._y_validation, self._x_test, self._y_test = self.data_pipeline.get_data()
         self._y_test_ind, self._y_validation_ind = np.argmax(self._y_test, axis=1), np.argmax(self._y_validation, axis=1)
+    
+    def __data_save(self):
+        """
+        Method saves train, validation and test dataset after preprocessing and splitting.
+        """
+        np.save(os.path.join(self.model_save_dir, "Data", "x_train.npy"), np.array(self._x_train))
+        np.save(os.path.join(self.model_save_dir, "Data", "y_train.npy"), np.array(self._y_train))
+
+        np.save(os.path.join(self.model_save_dir, "Data", "x_validation.npy"), np.array(self._x_validation))
+        np.save(os.path.join(self.model_save_dir, "Data", "y_validation.npy"), np.array(self._y_validation))
+
+        np.save(os.path.join(self.model_save_dir, "Data", "x_test.npy"), np.array(self._x_test))
+        np.save(os.path.join(self.model_save_dir, "Data", "y_test.npy"), np.array(self._y_test))
 
     def __model_prepare(self):
         """

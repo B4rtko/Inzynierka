@@ -11,8 +11,6 @@ from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Union
 
 from src.Metrics import *
-
-
 from src.Preprocessing import DataProcess
 
 data_filename_dict = {
@@ -73,7 +71,7 @@ class TrainCDT_1D:
 
         self.callbacks = []
         for cb in callbacks:
-            self.callbacks += [metrics_dict[cb]] if type(cb)==str else [cb]
+            self.callbacks += [callbacks_dict[cb]] if type(cb)==str else [cb]
 
         self.early_stopping_params = early_stopping_params
 

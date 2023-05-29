@@ -4,14 +4,13 @@ import os
 import pandas as pd
 import seaborn as sns
 import tensorflow as tf
-import yaml
 
 from datetime import datetime
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Union
 
-from src.Metrics import f1_m
+from src.Metrics import *
 from src.Preprocessing import DataProcess
 
 data_filename_dict = {
@@ -20,7 +19,13 @@ data_filename_dict = {
 }
 
 metrics_dict = {
-    "f1_m": f1_m,
+    "f1_m": f1_m,  #  todo check if the same results will be with use of callbacks and with manual calculations from confusion matrices
+}
+
+callbacks_dict = {
+    "predictions": StorePredictionsCallback,
+    "f1_weighted": StoreF1WeightedCallback,
+    "confusion_matrix": StoreConfusionMatrixCallback,
 }
 
 
@@ -41,6 +46,7 @@ class TrainCNN:
         balance_training_dataset: bool = True,
         batch_size: int = None,
         metrics = (f1_m,),
+        callbacks = (StorePredictionsCallback, StoreF1WeightedCallback, StoreConfusionMatrixCallback),
         early_stopping_params = None,
         dir_path_suffix: str = "",
     ):
@@ -58,9 +64,15 @@ class TrainCNN:
         self.balance_training_dataset = balance_training_dataset
         self.batch_size = 100 if batch_size is None\
             else batch_size
-        self.metrics = [
-            metrics_dict[m] if type(m)==str else m for m in metrics
-        ]
+
+        self.metrics = []
+        for m in metrics:
+            self.metrics += (metrics_dict[m] if type(metrics_dict[m])==list else [metrics_dict[m]]) if type(m)==str else m
+
+        self.callbacks = []
+        for cb in callbacks:
+            self.callbacks += [callbacks_dict[cb]] if type(cb)==str else [cb]
+
         self.early_stopping_params = early_stopping_params
 
         self.model_save_dir = os.path.join(
@@ -71,8 +83,7 @@ class TrainCNN:
         )
         os.makedirs(self.model_save_dir, exist_ok=True)
         os.makedirs(os.path.join(self.model_save_dir, "Figures"), exist_ok=True)
-
-        self.model_callbacks = []
+        os.makedirs(os.path.join(self.model_save_dir, "Callbacks"), exist_ok=True)
 
         self.data = None
         self.data_pipeline = None
@@ -104,8 +115,9 @@ class TrainCNN:
         """
         self.__model_prepare()
         self.__model_fit()
-        self.__model_evaluate_validation()
-        self.__model_evaluate_test()
+        self.__save_after_fit()
+        # self.__model_evaluate_validation()
+        # self.__model_evaluate_test()
         self.__model_history_to_csv()
         self.__model_training_history_visualise()
 
@@ -183,6 +195,9 @@ class TrainCNN:
         Model training history is being saved to 'self.model_history' attribute
         """
 
+        for i, cb in enumerate(self.callbacks):
+            self.callbacks[i] = cb(validation_data=(self._x_validation, self._y_validation), engine="numpy")
+
         if self.early_stopping_params:
             _es = tf.keras.callbacks.EarlyStopping(
                 monitor = self.early_stopping_params["monitor"],
@@ -211,11 +226,22 @@ class TrainCNN:
             self._x_train,
             self._y_train,
             epochs=self.epoch_count,
-            callbacks=self.model_callbacks,
+            callbacks=self.callbacks,
             validation_data=(self._x_validation, self._y_validation),
         )
 
         self.model.save(os.path.join(self.model_save_dir, "Model"))
+    
+    def __save_after_fit(self):
+        self.__save_model()
+        self.__save_callbacks()
+    
+    def __save_model(self):
+        self.model.save(os.path.join(self.model_save_dir, "Model"))
+    
+    def __save_callbacks(self):
+        for cb in self.callbacks:
+            cb.save(os.path.join(self.model_save_dir, "Callbacks"))
 
     def __model_evaluate_validation(self):
         """

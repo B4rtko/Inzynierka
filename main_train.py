@@ -131,8 +131,8 @@ def _get_config_args_by_mode(
 
 if __name__ == '__main__':
     data_name = \
-    "Apple_5"
     "Amazon_5"
+    "Apple_5"
     "Crude_Oil_5"
     "DJI_5"
     "Tesla_5"
@@ -146,9 +146,9 @@ if __name__ == '__main__':
     TrainCDT_1D
 
     pool_workers = \
-    None
-    1
     2
+    1
+    None
     4
     
 

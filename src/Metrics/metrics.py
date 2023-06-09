@@ -461,15 +461,117 @@ class StoreF1WeightedCallback(keras.callbacks.Callback):
         self.f1_weighted_func = f1_weighted(engine=engine)
         self.f1_weighted_list = []
         
+        self.monitor_value = 0
+        self.mode = "max"
 
     def on_epoch_end(self, epoch, logs=None):
         y_pred = self.model.predict(self.validation_data[0])
         y_true = self.validation_data[1]
         
-        self.f1_weighted_list.append(self.f1_weighted_func(y_true, y_pred))
+        self.monitor_value = self.f1_weighted_func(y_true, y_pred)
+        self.f1_weighted_list.append(self.monitor_value)
     
     def save(self, base_path: str) -> None:
         np.save(os.path.join(base_path, self.name + ".npy"), np.array(self.f1_weighted_list))
+
+
+class ModelCheckpointByCallback(keras.callbacks.Callback):
+    def __init__(
+        self,
+        monitor: keras.callbacks.Callback,
+        patience: int = 0,
+        min_delta: float = 0,
+        start_from_epoch: int = 0,
+        mode: str = "auto",
+        **kwargs
+    ) -> None:
+        super(ModelCheckpointByCallback, self).__init__()
+
+        self.monitor = monitor
+        self.patience = patience
+        self.min_delta = abs(min_delta)
+        self.start_from_epoch = start_from_epoch
+        
+        self.wait = 0
+        self.model_best = None
+        
+        mode = self.monitor.mode if mode == "auto" else mode
+        self.check_if_metric_improved = \
+            (lambda value: value - self.monitor_best > self.min_delta) if mode == "max" else \
+            (lambda value: self.monitor_best - value > self.min_delta)
+    
+        self.monitor_best = -np.inf if mode == "max" else np.inf
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.wait += 1
+        if self.patiently_wait() and self.check_if_metric_improved(self.monitor.monitor_value):
+            self.monitor_best = self.monitor.monitor_value
+            self.wait = 0
+            self.model_best = tf.keras.models.clone_model(self.model)
+            print("\n\nModel checkpoint saved\n\n")
+
+    def save(self, base_path: str) -> None:
+        if self.model_best is not None:
+            self.model_best.save(os.path.join(base_path, f"Model_best_{self.monitor.name}"))
+
+    def patiently_wait(self):
+        patience = self.start_from_epoch if self.start_from_epoch > 0 else self.patience
+
+        if self.wait > patience:
+            self.wait -= self.start_from_epoch
+            self.start_from_epoch = 0
+            return True
+        return False
+
+
+class EarlyStoppingByCallback(keras.callbacks.Callback):
+    def __init__(
+        self,
+        monitor: keras.callbacks.Callback,
+        patience: int = 0,
+        min_delta: float = 0,
+        start_from_epoch: int = 0,
+        mode: str = "auto",
+        **kwargs
+    ) -> None:
+        super(EarlyStoppingByCallback, self).__init__()
+
+        self.monitor = monitor
+        self.patience = patience
+        self.min_delta = abs(min_delta)
+        self.start_from_epoch = start_from_epoch
+        
+        self.wait = 0
+        
+        mode = self.monitor.mode if mode == "auto" else mode
+        self.check_if_metric_improved = \
+            (lambda value: value - self.monitor_best > self.min_delta) if mode == "max" else \
+            (lambda value: self.monitor_best - value > self.min_delta)
+
+        self.monitor_best = -np.inf if mode == "max" else np.inf
+    
+    def on_epoch_end(self, epoch, logs=None):
+        self.wait += 1
+        if self.check_if_metric_improved(self.monitor.monitor_value):
+            self.monitor_best = self.monitor.monitor_value
+            self.wait = 0
+        
+        bool_no_delayed_start = (self.start_from_epoch == 0)
+        if self.patiently_wait() and bool_no_delayed_start:
+            self.model.stop_training = True
+            print("\n\nEarly stopped\n\n")
+
+    def save(self, base_path: str) -> None:
+        pass
+
+    def patiently_wait(self):
+        patience = self.start_from_epoch if self.start_from_epoch > 0 else self.patience
+
+        if self.wait > patience:
+            self.wait -= self.start_from_epoch
+            self.start_from_epoch = 0
+            return True
+        return False
 
 
 __all__ = [
@@ -484,6 +586,8 @@ __all__ = [
     "StorePredictionsCallback",
     "StoreConfusionMatrixCallback",
     "StoreF1WeightedCallback",
+    "ModelCheckpointByCallback",
+    "EarlyStoppingByCallback",
 ]
 
 if __name__ == "__main__":

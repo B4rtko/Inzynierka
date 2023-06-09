@@ -49,6 +49,7 @@ class TrainCNN:
         callbacks = (StorePredictionsCallback, StoreF1WeightedCallback, StoreConfusionMatrixCallback),
         early_stopping_params = None,
         dir_path_suffix: str = "",
+        callbacks_monitor: List[int] = None,
     ):
         self.convolution_layers_count = convolution_layers_count
         self.dense_layers_units = dense_layers_units
@@ -73,6 +74,8 @@ class TrainCNN:
         for cb in callbacks:
             self.callbacks += [callbacks_dict[cb]] if type(cb)==str else [cb]
 
+        self.callbacks_monitor = callbacks_monitor if callbacks_monitor is not None else []
+        
         self.early_stopping_params = early_stopping_params
 
         self.model_save_dir = os.path.join(
@@ -213,6 +216,18 @@ class TrainCNN:
         for i, cb in enumerate(self.callbacks):
             self.callbacks[i] = cb(validation_data=(self._x_validation, self._y_validation), engine="numpy")
 
+        callbacks_monitor_tmp = []
+        for config in self.callbacks_monitor:
+            config["monitor"] = self.callbacks[config["monitor"]]
+            cb = \
+                ModelCheckpointByCallback(**config) if config["type"] == "ModelCheckpointByCallback" else \
+                EarlyStoppingByCallback(**config) if config["type"] == "EarlyStoppingByCallback" else \
+                None
+
+            callbacks_monitor_tmp.append(cb)
+        
+        self.callbacks_monitor = callbacks_monitor_tmp
+
         if self.early_stopping_params:
             _es = tf.keras.callbacks.EarlyStopping(
                 monitor = self.early_stopping_params["monitor"],
@@ -241,7 +256,7 @@ class TrainCNN:
             self._x_train,
             self._y_train,
             epochs=self.epoch_count,
-            callbacks=self.callbacks,
+            callbacks=self.callbacks + self.callbacks_monitor,
             validation_data=(self._x_validation, self._y_validation),
         )
 
@@ -255,7 +270,7 @@ class TrainCNN:
         self.model.save(os.path.join(self.model_save_dir, "Model"))
     
     def __save_callbacks(self):
-        for cb in self.callbacks:
+        for cb in self.callbacks + self.callbacks_monitor:
             cb.save(os.path.join(self.model_save_dir, "Callbacks"))
 
     def __model_evaluate_validation(self):

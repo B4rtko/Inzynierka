@@ -142,14 +142,14 @@ if __name__ == '__main__':
     "from_uncompleted"
 
     model_class = \
-    TrainCDT_1D
     TrainCNN    
+    TrainCDT_1D
 
     pool_workers = \
-    2
     1
-    None
     4
+    2
+    None
     
 
     run(

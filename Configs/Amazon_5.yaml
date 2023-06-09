@@ -4,7 +4,7 @@ convolution_layers_count:
 dense_layers_units:
   - [1000, 500]
 epoch_count:
-  - 10
+  - 500
 data_filename:
   -  - "Data"
      - "2_Extracted"
@@ -31,6 +31,20 @@ callbacks:
   - - "f1_weighted"
     - "confusion_matrix"
     - "predictions"
+callbacks_monitor:
+  - - monitor: 0
+      patience: 5
+      min_delta: 0
+      start_from_epoch: 10
+      mode: "auto"
+      type: "ModelCheckpointByCallback"
+    - monitor: 0
+      patience: 13
+      min_delta: 0.1
+      start_from_epoch: 10
+      mode: "auto"
+      type: "EarlyStoppingByCallback"
+
 # early_stopping_params:
 #   - monitor: "val_loss"
 #     mode: "min"

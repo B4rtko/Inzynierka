@@ -51,6 +51,7 @@ class DataProcess:
         self.scale_exclude_rows = scale_exclude_rows if scale_exclude_rows else []
         self.balance_training_dataset = balance_training_dataset
         self.drop_zero_value_rows = drop_zero_value_rows
+        self.scaler = None
 
     def run(self):
         """
@@ -182,8 +183,8 @@ class DataProcess:
         _y[:, 2][_y_class_ind == 1] = 1
         return _x, _y
 
-    @staticmethod
     def _scale_data(
+            self,
             fit_dataset: Union[Tuple[np.ndarray, ...], np.ndarray],
             transform_datasets: Union[Tuple[np.ndarray, ...], np.ndarray],
             exclude_rows: list
@@ -205,12 +206,12 @@ class DataProcess:
             [indices_rows.remove(i) for i in set(exclude_rows)]
 
         _fit_dataset = np.transpose(fit_dataset[indices_rows, :])
-        scaler = StandardScaler()
-        scaler.fit(_fit_dataset)
+        self.scaler = StandardScaler()
+        self.scaler.fit(_fit_dataset)
 
         for _dataset in [fit_dataset] + list(transform_datasets):
             _dataset[indices_rows, :] = np.transpose(
-                scaler.transform(
+                self.scaler.transform(
                     np.transpose(_dataset[indices_rows, :]),
                     copy=True
                 )

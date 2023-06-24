@@ -1,3 +1,4 @@
+import joblib 
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -113,6 +114,7 @@ class TrainCNN:
         self.__data_load()
         self.__data_preprocess()
         self.__data_save()
+        self.__scaler_save()
 
     def _model_actions(self):
         """
@@ -171,6 +173,13 @@ class TrainCNN:
 
         np.save(os.path.join(self.model_save_dir, "Data", "x_test.npy"), np.array(self._x_test))
         np.save(os.path.join(self.model_save_dir, "Data", "y_test.npy"), np.array(self._y_test))
+    
+    def __scaler_save(self):
+        """
+        Method saves scaler object used in data pipeline to scale data.
+        """
+        if self.data_pipeline.scaler is not None:
+            joblib.dump(self.data_pipeline.scaler, os.path.join(self.model_save_dir, "Data", "scaler.pkl"))
 
     def __model_prepare(self):
         """
